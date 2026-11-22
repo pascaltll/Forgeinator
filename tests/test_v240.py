@@ -398,8 +398,9 @@ def test_interruptores_de_comprobar_al_arrancar_y_al_abrir_ficha(H, ui, monkeypa
     assert n["c"] == 1
     ui.pump()
     assert n["c"] == 1                                                         # una sola vez
-    e = ui.entries[0]
+    e = next(x for x in ui.entries if x.get("repo"))                         # v3.12: el primero con repo (el orden puede variar entre sistemas)
     ui.rel.pop(ui.rk(e), None)
+    monkeypatch.setattr(H.github, "from_cache", lambda *a, **k: None)         # sin caché de disco (en CI puede quedar de otra prueba)
     ui.cfg["fetch_on_open"] = False
     ui.open_detail(e)
     assert n["f"] == 1                                                         # sin caché (p. ej. tras reinstalar) consulta ESTE juego aunque el interruptor esté apagado

@@ -83,7 +83,7 @@ class ModalMixin:
                     self.button(f"k:{ri}:{ci}", (p.x + self.n(30) + off + ci * (kw + self.n(8)), yy, kw, self.n(76)), c,
                                 lambda c=c: m.__setitem__("text", m["text"] + c), size=24)
                 yy += self.n(84)
-            specials = [("⇧ MAYÚS", 2, lambda: m.__setitem__("shift", not m["shift"]), "primary" if m["shift"] else "normal"),
+            specials = [("MAYÚS", 2, lambda: m.__setitem__("shift", not m["shift"]), "primary" if m["shift"] else "normal"),
                         ("ESPACIO", 3, lambda: m.__setitem__("text", m["text"] + " "), "normal"),
                         ("PEGAR", 2, lambda: m.__setitem__("text", m["text"] + (self.clipboard() or "")) if self.clipboard() else self.toast("Portapapeles vacío o no disponible"), "normal"),
                         ("BORRAR", 2, lambda: m.__setitem__("text", m["text"][:-1]), "normal"),
@@ -360,6 +360,6 @@ class ModalMixin:
                     self.button(f"az:{L}", (sx, lv.y + k_ * cell, sw_, cell), L, lambda i_=i_: self.picker_jump(i_), "chipsel" if L == cur else "ghost", 17, focus=False)
             by = lv.bottom + self.n(8)
             bw2 = (lv.w - self.n(20)) // 3
-            self.button("pg:up", (lv.x, by, bw2, self.n(72)), "▲ PÁGINA", lambda: setattr(pv, "off", max(0, pv.off - page)), size=18)
+            self.button("pg:up", (lv.x, by, bw2, self.n(72)), "PÁG. ANTERIOR", lambda: setattr(pv, "off", max(0, pv.off - page)), size=18)
             self.text(f"{len(m['items'])} elementos" + (f" · filtro «{m['filt']}»" if m.get("filt") else ""), lv.centerx, by + self.n(36), 18, DIM, anchor="mid")
-            self.button("pg:dn", (lv.right - bw2, by, bw2, self.n(72)), "PÁGINA ▼", lambda: setattr(pv, "off", min(max(0, pv.h - lv.h), pv.off + page)), size=18)
+            self.button("pg:dn", (lv.right - bw2, by, bw2, self.n(72)), "PÁG. SIGUIENTE", lambda: setattr(pv, "off", min(max(0, pv.h - lv.h), pv.off + page)), size=18)

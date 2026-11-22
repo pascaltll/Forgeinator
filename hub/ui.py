@@ -1820,7 +1820,7 @@ class UI(*_PARTS):
             opts.append(("◂ MÁS NUEVAS", lambda: self._rel_menu(e, lst, max(0, off - step), pick, label, step)))
         opts += [(label(r), (lambda t=r["tag"]: pick(t))) for r in lst[off:off + step]]
         if off + step < len(lst):
-            opts.append((f"MÁS ANTIGUAS ▸  ({len(lst) - off - step} más)", lambda: self._rel_menu(e, lst, off + step, pick, label, step)))
+            opts.append((f"MÁS ANTIGUAS…  ({len(lst) - off - step} más)", lambda: self._rel_menu(e, lst, off + step, pick, label, step)))
         self.modal = {"kind": "choice", "title": f"Elegir release ({off + 1}–{min(off + step, len(lst))} de {len(lst)})", "prev": None,
                       "msg": "Cada línea dice cuántos builds de Linux y de Windows trae esa release. Para volver atrás: elige la que funcionaba, instálala y CONGÉLALA.", "options": opts}
         self.focus = None

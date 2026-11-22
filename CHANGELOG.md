@@ -1410,3 +1410,6 @@ Pendiente de pulir: el panel protagonista de Showcase tiene mucho espacio libre 
 - **Nombre definitivo: Forgeinator 3000** («Forgeinator» en la cabecera; «Forgeinator 3000» en la ventana). Lema: *«¡Contempla el Forgeinator 3000! Forja ports sueltos en juegos jugables»*.
 - Repositorio: `github.com/pascaltll/Forgeinator`.
 - La autoactualización acepta las tres marcas (`✓ Recomp Hub`, `✓ Craftinador`, `✓ Forgeinator`). Las carpetas siguen igual (`~/Games/recomp-hub`).
+- Arreglado (visto en las pruebas de GitHub, con fuentes Noto como las de Bazzite):
+  - «MAYÚS», «PÁG. ANTERIOR / SIGUIENTE», «MÁS ANTIGUAS…» y los pliegues de la ficha (+ / –) ya no usan símbolos que Noto Sans no trae (⇧ ▲ ▼ ▸), que salían como «^» o «>».
+  - En la ficha, a 1920×1080, el panel «Archivo del juego» medía en unidades sin escalar y sus botones de abajo pisaban «VERSIONES».

@@ -302,7 +302,8 @@ class DetailMixin:
                 rows.append((k_, v_, self.wrap(v_, 19, max(self.n(100), rw - kw))))
             rows_h = sum(max(1, len(r[2])) * 26 + 10 for r in rows)
             msg = self.roms_msg.get(e["id"])
-            right_h = 30 + 52 + rows_h + 18 + 136 + 18 + (32 if msg else 0) + 86 + 86 + 30
+            # v3.12: en píxeles de pantalla (antes sin escalar: a 1920×1080 los botones de abajo pisaban «VERSIONES»)
+            right_h = self.n(30 + 52 + rows_h + 18 + 136 + 18 + (32 if msg else 0) + 86 + 86 + 30)
             h = max(chh, right_h) + 2 * pad
             chh = h - 2 * pad
             p = pygame.Rect(x0, y, colw, h)
@@ -785,7 +786,7 @@ class DetailMixin:
         """v2.89: encabezado plegable. Escribe «abierto/cerrado» (no solo color) y devuelve (abierto, y_siguiente)."""
         k = (e["id"], key)
         op = self.fold_state.get(k, default)
-        self.button(f"fold:{e['id']}:{key}", (x0, y, colw, self.n(72)), f"{'▾' if op else '▸'}  {label}      {'abierto' if op else 'cerrado'}",
+        self.button(f"fold:{e['id']}:{key}", (x0, y, colw, self.n(72)), f"{'–' if op else '+'}  {label}      {'abierto' if op else 'cerrado'}",
                     lambda: self.fold_state.__setitem__(k, not op), "seg" if op else "normal", 17)
         return op, y + self.n(86)
 
