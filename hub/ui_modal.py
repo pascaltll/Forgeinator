@@ -43,7 +43,7 @@ class ModalMixin:
             self.text("Escribe con el teclado de Steam (si no aparece, pulsa TECLADO DE STEAM). Intro = aceptar.", p.x + self.n(30), box.bottom + self.n(14), 17, DIM, maxw=pw - self.n(60))
             yy = box.bottom + self.n(52)
             specials = [("TECLADO DE STEAM", 3, self.steam_kb_open, "primary"),
-                        ("PEGAR", 2, lambda: m.__setitem__("text", m["text"] + (self.clipboard() or "")) if self.clipboard() else self.toast("Portapapeles vacío o no disponible"), "normal"),
+                        ("PEGAR", 2, lambda: self._osk_paste(m), "normal"),
                         ("TECLADO DE HUB", 3, lambda: m.__setitem__("steam", False), "normal"),
                         ("CANCELAR", 2, self.close_modal, "normal"),
                         ("ACEPTAR", 2, lambda: self._osk_ok(m), "ok")]
@@ -85,7 +85,7 @@ class ModalMixin:
                 yy += self.n(84)
             specials = [("MAYÚS", 2, lambda: m.__setitem__("shift", not m["shift"]), "primary" if m["shift"] else "normal"),
                         ("ESPACIO", 3, lambda: m.__setitem__("text", m["text"] + " "), "normal"),
-                        ("PEGAR", 2, lambda: m.__setitem__("text", m["text"] + (self.clipboard() or "")) if self.clipboard() else self.toast("Portapapeles vacío o no disponible"), "normal"),
+                        ("PEGAR", 2, lambda: self._osk_paste(m), "normal"),
                         ("BORRAR", 2, lambda: m.__setitem__("text", m["text"][:-1]), "normal"),
                         ("CANCELAR", 2, self.close_modal, "normal"),
                         ("ACEPTAR", 2, lambda: self._osk_ok(m), "primary")]
@@ -294,7 +294,7 @@ class ModalMixin:
             if rd:
                 quick.append(("ROMS " + rd.name.upper(), rd))
             try:
-                dd = ex(config.path("downloads_dir"))
+                dd = ex(self.cfg.get("downloads_dir") or config.path("downloads_dir"))
                 if dd.is_dir():
                     quick.append(("DESCARGAS", dd))
             except Exception:  # noqa: BLE001

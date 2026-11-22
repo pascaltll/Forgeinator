@@ -107,6 +107,8 @@ def test_ajustes_dibuja_solo_lo_visible_y_baja_los_fps_en_reposo(H, ui):
     assert ui.target_fps() == 45
     ui.go_tab("home")
     ui.t_act = 0
+    assert ui.target_fps() == 30          # v3.14: sin fondo animado (calidad rendimiento), en reposo cualquier pantalla baja a 30
+    ui.t_act = time.time()
     assert ui.target_fps() == 45
 
 

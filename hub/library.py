@@ -142,12 +142,29 @@ def adopt(path, platform, mode="link") -> Path:
 LINKS = config.DATA / "links.json"
 
 
-def link_get(eid):
+_LINKS_C = [None, None]
+
+
+def _links():
+    """v3.14: links.json leído una vez y reutilizado mientras no cambie (mismo tamaño y fecha en ns). La ficha lo consultaba en cada
+    fotograma; ahora cuesta un stat. Lo escriba quien lo escriba (este proceso, un hilo u otro programa), el cambio se ve al momento."""
     import json
     try:
-        return json.loads(LINKS.read_text(encoding="utf-8")).get(eid)
-    except (OSError, ValueError):
-        return None
+        st = LINKS.stat()
+    except OSError:
+        return {}
+    sig = (str(LINKS), st.st_mtime_ns, st.st_size)
+    if _LINKS_C[0] != sig:
+        try:
+            d = json.loads(LINKS.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            d = {}
+        _LINKS_C[0], _LINKS_C[1] = sig, d if isinstance(d, dict) else {}
+    return _LINKS_C[1]
+
+
+def link_get(eid):
+    return _links().get(eid)
 
 
 def link_set(eid, path):
@@ -159,14 +176,16 @@ def link_set(eid, path):
     cur[eid] = str(path)
     LINKS.parent.mkdir(parents=True, exist_ok=True)
     LINKS.write_text(json.dumps(cur, indent=1), encoding="utf-8")
+    _LINKS_C[0] = None
 
 
 def disc_links(eid) -> dict:
     """v2.40+: un port que pide VARIOS discos (God of War PSP: Chains of Olympus y Ghost of Sparta) guarda uno por ID: {UCUS98653: ruta, …}."""
-    import json
     try:
-        d = json.loads(LINKS.read_text(encoding="utf-8")).get("_discs", {}).get(eid, {})
-    except (OSError, ValueError, AttributeError):
+        d = _links().get("_discs", {}).get(eid, {})
+    except AttributeError:
+        return {}
+    if not isinstance(d, dict):
         return {}
     return {k: v for k, v in d.items() if isinstance(v, str)}
 
@@ -180,6 +199,7 @@ def disc_link_set(eid, serial, path):
     cur.setdefault("_discs", {}).setdefault(eid, {})[serial] = str(path)
     LINKS.parent.mkdir(parents=True, exist_ok=True)
     LINKS.write_text(json.dumps(cur, indent=1), encoding="utf-8")
+    _LINKS_C[0] = None
 
 
 def place(entry, src, install_dir):

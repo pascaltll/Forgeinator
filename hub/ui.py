@@ -133,6 +133,16 @@ THEME_ORDER = themes_fam.ORDER
 for _f in themes_fam.FAMILIES:
     THEMES[_f] = themes_fam.build(_LEG, _f)
 FAMILY, PAL = "limpio", "oscuro"
+def _fsig(p):
+    """Firma barata de un archivo (fecha en ns y tamaño) para memo(): si otro proceso lo reescribe, la clave cambia y se relee."""
+    try:
+        st = os.stat(p)
+        return st.st_mtime_ns, st.st_size
+    except OSError:
+        return None
+
+
+_MOTION_EV = (pygame.MOUSEMOTION, pygame.FINGERMOTION, pygame.MOUSEWHEEL)
 ANIM = None                                                # fondo animado del tema: "aurora" · "stars" · "embers"
 FONTK = 1.0                                                # la monoespaciada es más ancha: el tema la encoge para que quepa
 FONT = PATTERN = None                                      # tipografía ("serif"/"mono") y trama del fondo ("grid"/"scan") del tema
@@ -943,6 +953,7 @@ class UI(*_PARTS):
 
     def press(self, act, hold=False, now=None):
         now = now or time.time()
+        self._io_gen += 1                              # v3.14: lo que se lea del disco para dibujar se relee tras cada pulsación
         if now - self.last_press.get(act, 0) < 0.08:
             return
         self.last_press[act] = now
@@ -1069,6 +1080,8 @@ class UI(*_PARTS):
             self.press(b, hold=b in DIRS, now=now)
         for e in pygame.event.get():
             self.t_act = now
+            if e.type not in _MOTION_EV:
+                self._io_gen += 1                      # v3.14: arrastrar o mover el ratón no obliga a releer lo cacheado con memo()
             if e.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN, pygame.FINGERDOWN, pygame.JOYBUTTONDOWN, pygame.CONTROLLERBUTTONDOWN):
                 self.last_input = now
             if e.type == pygame.QUIT:
@@ -3323,6 +3336,9 @@ class UI(*_PARTS):
         self.toast("Stick izquierdo: " + ("activado" if self.cfg["stick_nav"] else "desactivado (usa la cruceta)"))
 
     def _last_update_txt(self):
+        return self.memo(("upd_txt", _fsig(config.DATA / "update.json")), self._last_update_txt_read, 30.0)
+
+    def _last_update_txt_read(self):
         try:
             import json
             u = json.loads((config.DATA / "update.json").read_text(encoding="utf-8"))
@@ -3332,6 +3348,9 @@ class UI(*_PARTS):
             return ""
 
     def _tests_last_txt(self):
+        return self.memo(("tests_txt", _fsig(config.DATA / "tests" / "resumen.txt")), self._tests_last_txt_read, 30.0)
+
+    def _tests_last_txt_read(self):
         try:
             return (config.DATA / "tests" / "resumen.txt").read_text(encoding="utf-8").strip() or "todavía no"
         except OSError:
@@ -5101,6 +5120,14 @@ class UI(*_PARTS):
         except Exception:  # noqa: BLE001
             return ""
 
+    def _osk_paste(self, m):
+        """PEGAR del teclado en pantalla: una sola lectura del portapapeles (antes eran dos procesos wl-paste/xclip por pulsación)."""
+        txt = self.clipboard()
+        if txt:
+            m["text"] = m["text"] + txt
+        else:
+            self.toast("Portapapeles vacío o no disponible")
+
     @staticmethod
     def clipboard():
         for c in (["wl-paste", "-n"], ["xclip", "-o", "-selection", "clipboard"], ["xsel", "-ob"]):
@@ -5509,6 +5536,25 @@ class UI(*_PARTS):
             self.focus = min(cands, key=lambda w: (w.rect.y, w.rect.x)).key if cands else None
 
     t_act = 0.0
+    _io_gen = 0
+
+    def memo(self, key, fn, ttl=2.0):
+        """v3.14: lo que una pantalla lee del disco al dibujarse (claves guardadas, registros, update.json…) se lee una vez
+        y se reutiliza hasta la siguiente pulsación/evento o como mucho `ttl` segundos (por si lo cambia un hilo). Antes se leía en cada
+        fotograma: 45 lecturas por segundo, y algunas (buildlog.jsonl, launch-logs/) crecen con el uso."""
+        c = self.__dict__.setdefault("_memo_c", {})
+        now = time.monotonic()
+        hit = c.get(key)
+        if hit and hit[0] == self._io_gen and now - hit[1] < ttl:
+            return hit[2]
+        v = fn()
+        if len(c) > 256:
+            c.clear()
+        c[key] = (self._io_gen, now, v)
+        return v
+
+    def memo_clear(self):
+        self.__dict__.get("_memo_c", {}).clear()
     STEAM_WAIT_MAX = 5.0
     STEAM_COVER_MAX = 12.0    # v2.49: tope de espera a que otra ventana tome el foco
     STEAM_COVER_GRACE = 1.5   # margen tras ver la ventana del launcher/juego
@@ -5539,6 +5585,8 @@ class UI(*_PARTS):
             return 15 if save else 20
         if save:
             return 15 if (quiet and idle > 3.0) else 30
+        if quiet and idle > 5.0 and not (ANIM and self.fx_level() >= 2 and not self.reduced_motion()):
+            return 30                                  # v3.14: sin fondo animado y 5 s sin tocar nada, nada se mueve: 30 fps (la 1.ª pulsación vuelve a 45)
         return 45
 
     def cycle_power_mode(self):
@@ -5778,6 +5826,12 @@ class UI(*_PARTS):
                 rss = fds = 0
             print(f"[vivo] {time.time() - self.t0:.0f}s · inactivo {time.time() - self.last_input:.0f}s · RAM {rss} MB · hilos {threading.active_count()} · fds {fds} · fps {self.fps:.0f}",
                   file=sys.stderr, flush=True)
+            try:
+                from . import logrot
+                if logrot.maybe_rotate(config.DATA / "hub.log"):
+                    print(f"[registro] hub.log pasó de {logrot.LIMIT // 1048576} MB: lo anterior está en hub.log.old", file=sys.stderr, flush=True)
+            except Exception:  # noqa: BLE001
+                pass
 
     @staticmethod
     def _kill_descendants(spare=()):

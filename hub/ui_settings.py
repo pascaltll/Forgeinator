@@ -296,7 +296,7 @@ class SettingsMixin:
         act_row("closeplay", "HUB AL EMPEZAR A JUGAR: " + ("SE CIERRA" if self.cfg.get("close_on_play", True) else "SE QUEDA ABIERTO"), self.toggle_close_on_play,
                 desc="Cerrar Hub libera memoria y batería mientras juegas")
         act_row("power", "MODO DE ENERGÍA: " + self.power_label(), self.cycle_power_mode, desc="Ahorro: menos fps y sin animaciones (automático con TDP ≤ 9 W o batería baja)")
-        act_row("proton_def", "PROTON POR DEFECTO (JUEGOS DE WINDOWS): " + (Path(self.cfg.get("proton_default")).name if self.cfg.get("proton_default") else "AUTOMÁTICO (" + Path(osver.proton_path()).name + ")"),
+        act_row("proton_def", "PROTON POR DEFECTO (JUEGOS DE WINDOWS): " + (Path(self.cfg.get("proton_default")).name if self.cfg.get("proton_default") else "AUTOMÁTICO (" + Path(self.memo("proton", osver.proton_path, 10.0)).name + ")"),
                 self.cycle_proton_default, desc="Para los juegos nuevos; cada juego puede elegir el suyo en su ficha → LANZAR. Cada toque pasa al siguiente instalado")
         act_row("steamprep", "AÑADIR TODO A STEAM", lambda: self.go_tab("steam"), desc="Accesos, iconos y arte de todos tus juegos en Steam")
 
@@ -313,10 +313,10 @@ class SettingsMixin:
                 desc="Cuando bajas algo en el navegador, Hub vuelve delante")
         section("Carátulas")
         act_row("covers", "DESCARGAR CARÁTULAS FALTANTES: " + self._covers_txt(), self.covers_batch, desc="Una sola vez, desde SteamGridDB")
-        act_row("k_sgdb", "CLAVE DE STEAMGRIDDB: " + ("guardada" if sgdb.key() else "falta"), lambda: self.osk(
+        act_row("k_sgdb", "CLAVE DE STEAMGRIDDB: " + ("guardada" if self.memo("k_sgdb", sgdb.key) else "falta"), lambda: self.osk(
             "Clave de SteamGridDB (steamgriddb.com → Preferences → API)", lambda t: (sgdb.save_key(t), self.toast("Clave guardada")) if t.strip() else None, ""),
                 desc="Necesaria para buscar carátulas y arte")
-        act_row("k_tgdb", "CLAVE DE THEGAMESDB: " + ("guardada" if artsrc.tgdb_key() else "falta"), self.art_tgdb_key)
+        act_row("k_tgdb", "CLAVE DE THEGAMESDB: " + ("guardada" if self.memo("k_tgdb", artsrc.tgdb_key) else "falta"), self.art_tgdb_key)
 
     def _set_catalog(self, act_row, section, num_row):
         act_row("go_search", "BUSCAR PROYECTOS EN GITHUB", lambda: self.go_tab("search"), desc="Busca un juego y crea su tarjeta con lo que diga el repositorio")
@@ -357,7 +357,7 @@ class SettingsMixin:
                 desc="Pega owner/repo o una URL; se abre en el navegador elegido")
         if ghcookies.saved():
             act_row("gh_cookies_del", "BORRAR COOKIES GUARDADAS", self.gh_cookies_forget, "danger")
-        if auth.stored():
+        if self.memo("gh_stored", auth.stored):
             act_row("gh_out", "CERRAR SESIÓN DE GITHUB", self.gh_logout, "danger", desc="Borra las credenciales guardadas en este equipo")
         section("Navegador")
         act_row("browser", "NAVEGADOR: " + self.cfg.get("browser", "auto").upper()[:60], self.browser_menu, desc="Con cuál se abren las páginas de los proyectos")
@@ -369,7 +369,7 @@ class SettingsMixin:
     def _set_build(self, act_row, section, num_row):
         act_row("cont", f"CONTENEDOR DE COMPILACIÓN: {self.cfg.get('build_container', 'fedora') or '(sistema)'}", self.set_container,
                 desc="El distrobox donde se compilan los ports que no traen build de Linux")
-        act_row("blog", "COMPILACIONES REGISTRADAS: " + buildlog.summary(), self.show_buildlog)
+        act_row("blog", "COMPILACIONES REGISTRADAS: " + self.memo("blog", buildlog.summary, 5.0), self.show_buildlog)
 
     def _set_maint(self, act_row, section, num_row):
         act_row("upd", f"ACTUALIZAR HUB (versión {config.VERSION}): " + (f"HAY UNA NUEVA, {self.upd_ready['ver']}" if self.upd_ready else "buscar zip en ~/Games/actualizaciones"),
@@ -384,7 +384,7 @@ class SettingsMixin:
                 self.run_tests, desc="Tarda unos minutos; el resultado sale en DESCARGAS")
         act_row("tests_last", "ÚLTIMO RESULTADO: " + self._tests_last_txt(), self.show_tests_report)
         act_row("doctor", "DOCTOR", self.run_doctor, desc="Comprueba pantalla, disco, launcher, red y duplicados")
-        act_row("launchlogs", f"REGISTROS DE ARRANQUE: {len(launchlog.reports())} guardados", self.send_launchlogs,
+        act_row("launchlogs", f"REGISTROS DE ARRANQUE: {self.memo("launchlogs", lambda: len(launchlog.reports()), 5.0)} guardados", self.send_launchlogs,
                 desc="Junta los arranques fallidos en un archivo para enviármelo")
         act_row("showlog", "VER REGISTRO DE HUB", self.show_hublog, desc="hub.log: errores, coincidencias y mando")
         act_row("perf", "REGISTRAR RENDIMIENTO: " + ("SÍ" if self.perf.on else "NO"), self.toggle_perf, desc="Anota en hub.log los fotogramas lentos")
