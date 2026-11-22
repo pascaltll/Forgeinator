@@ -133,3 +133,26 @@ def test_modo_anadir_real(tmp_path):
         os.close(saved)
         os.close(fd)
     assert log.read_bytes() == b"nuevo\n"              # sin huecos: lo nuevo empieza al principio
+
+
+def test_credenciales_en_cache_y_al_dia(tmp_path, monkeypatch):
+    from hub import auth
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setattr(auth, "FILE", tmp_path / "credentials.json")
+    auth._C[0] = None
+    assert not auth.stored() and auth.token() == ""
+    auth.save("tok1", "yo", "token")
+    assert auth.stored() and auth.token() == "tok1" and auth.login() == "yo"
+    reads = []
+    orig = type(auth.FILE).read_text
+    monkeypatch.setattr(type(auth.FILE), "read_text", lambda self, *a, **k: (reads.append(1), orig(self, *a, **k))[1])
+    for _ in range(30):
+        auth.token()
+    assert reads == []                                # sin cambios: ni una lectura por fotograma
+    auth.set_login("otro")
+    assert auth.login() == "otro"
+    d = auth._read()
+    d["token"] = "mutado"                             # quien modifique lo devuelto no estropea la caché
+    assert auth.token() == "tok1"
+    auth.clear()
+    assert not auth.stored() and auth.token() == ""

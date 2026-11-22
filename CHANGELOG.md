@@ -1430,9 +1430,10 @@ Medido en 17 pantallas × 6 temas × calidad alta/rendimiento, a 1280×800 y 192
 - **Sin lecturas de disco en cada fotograma.** Algunas pantallas volvían a leer archivos 45 veces por segundo:
   - Ajustes: 7 archivos y 3 carpetas por fotograma (`update.json`, claves, `credentials.json`, `buildlog.jsonl`, `launch-logs/`, Proton…). `buildlog.jsonl` y `launch-logs/` crecen con el uso.
   - Ficha: `links.json`.
+  - Ajustes y Buscar, sin la variable `GITHUB_TOKEN`: `credentials.json` (la sesión de GitHub).
   - Explorador de archivos: `settings.json`.
 
-  Ahora esos datos se leen una vez y se vuelven a leer tras cada pulsación, cuando cambia el archivo (`links.json`, `update.json`, el resumen de pruebas) o, como mucho, cada 2–10 s si otro proceso cambia lo demás. Resultado: 0 lecturas por fotograma.
+  Ahora esos datos se leen una vez y se vuelven a leer tras cada pulsación, cuando cambia el archivo (`links.json`, `credentials.json`, `update.json`, el resumen de pruebas) o, como mucho, cada 2–10 s si otro proceso cambia lo demás. Resultado: 0 lecturas por fotograma.
 - **30 fps en reposo.** Tras 5 s sin tocar nada y sin fondo animado (calidad «rendimiento», «equilibrado» o menos movimiento), Hub dibuja a 30 fps en vez de 45. La primera pulsación vuelve a 45. Con fondo animado no cambia nada.
 - **PEGAR** en el teclado en pantalla abre un solo proceso del portapapeles (antes, dos).
 - **hub.log con tope durante la sesión:** al pasar de 8 MB, lo anterior se mueve a `hub.log.old`. Antes solo se rotaba al arrancar (> 1 MB).

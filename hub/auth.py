@@ -25,11 +25,24 @@ def _migrate():
 _migrate()
 
 
+_C = [None, {}]
+
+
 def _read() -> dict:
+    """v3.14: se relee solo si el archivo cambió (fecha en ns y tamaño). Ajustes y Buscar preguntan por la sesión en cada fotograma."""
     try:
-        return json.loads(FILE.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        st = FILE.stat()
+    except OSError:
+        _C[0], _C[1] = None, {}
         return {}
+    sig = (str(FILE), st.st_mtime_ns, st.st_size)
+    if _C[0] != sig:
+        try:
+            d = json.loads(FILE.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            d = {}
+        _C[0], _C[1] = sig, d if isinstance(d, dict) else {}
+    return dict(_C[1])
 
 
 def token() -> str:
@@ -55,6 +68,7 @@ def save(tok: str, login_name: str = "", via: str = "") -> None:
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(data, f)
     os.chmod(FILE, 0o600)
+    _C[0] = None
 
 
 def set_login(name: str) -> None:
@@ -65,6 +79,7 @@ def set_login(name: str) -> None:
 
 def clear() -> bool:
     """Borra SOLO las credenciales guardadas por Hub (no toca la variable GITHUB_TOKEN del entorno)."""
+    _C[0] = None
     try:
         FILE.unlink()
         return True
