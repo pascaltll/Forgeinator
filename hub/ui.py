@@ -251,6 +251,7 @@ class UI(*_PARTS):
             size = tuple(int(v) for v in size.lower().split("x"))
         self.screen = pygame.display.set_mode(size) if size else pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         pygame.display.set_caption("Forgeinator 3000")
+        self._set_window_icon()
         pygame.mouse.set_visible(bool(size))
         self.W, self.H = self.screen.get_size()
         self.k0 = max(0.7, min(1.6, self.H / 1080.0)) * float(os.environ.get("HUB_FONT_SCALE", "1"))
@@ -399,6 +400,15 @@ class UI(*_PARTS):
         if isinstance(lv, tuple):
             lv = {"size": lv[0], "weight": lv[1], "case": None}
         return self.font(lv["size"], weight=lv["weight"]), lv.get("case")
+
+    def _set_window_icon(self):
+        """v3.13: icono de Forgeinator 3000 en la ventana (escritorio y barra de tareas). Sin el archivo, el de siempre."""
+        try:
+            ic = Path(__file__).resolve().parents[1] / "assets" / "brand" / "icon-64.png"
+            if ic.is_file():
+                pygame.display.set_icon(pygame.image.load(str(ic)))
+        except Exception:  # noqa: BLE001
+            pass
 
     def _sys_medium(self, fam):
         """Archivo del peso medio (fontconfig weight 100) de una familia del sistema, solo si de verdad está instalado; None si no."""

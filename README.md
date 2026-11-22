@@ -1,3 +1,5 @@
+![Forgeinator 3000 — Behold, the Forgeinator 3000! It forges scattered ports into playable games.](assets/brand/readme-banner.png)
+
 # Forgeinator 3000
 
 > *Behold, the Forgeinator 3000! It forges scattered ports into playable games.*

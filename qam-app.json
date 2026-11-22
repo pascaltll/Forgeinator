@@ -1,0 +1,16 @@
+{
+  "id": "forgeinator",
+  "name": "Forgeinator 3000",
+  "launch": "bin/hub",
+  "launch_options": "",
+  "install": null,
+  "keep": ["data", ".venv", "*.log"],
+  "art": {
+    "capsule": "assets/brand/steam-capsule.png",
+    "header": "assets/brand/steam-header.png",
+    "hero": "assets/brand/steam-hero.png",
+    "logo": "assets/brand/steam-logo.png",
+    "icon": "assets/brand/icon-256.png"
+  },
+  "actions": []
+}

@@ -1413,3 +1413,14 @@ Pendiente de pulir: el panel protagonista de Showcase tiene mucho espacio libre 
 - Arreglado (visto en las pruebas de GitHub, con fuentes Noto como las de Bazzite):
   - «MAYÚS», «PÁG. ANTERIOR / SIGUIENTE», «MÁS ANTIGUAS…» y los pliegues de la ficha (+ / –) ya no usan símbolos que Noto Sans no trae (⇧ ▲ ▼ ▸), que salían como «^» o «>».
   - En la ficha, a 1920×1080, el panel «Archivo del juego» medía en unidades sin escalar y sus botones de abajo pisaban «VERSIONES».
+
+## v3.13 · Logo e identidad de Forgeinator 3000
+- **Logo original:** un yunque de acero con un cartucho al rojo vivo, chispas y la placa amarilla «3000». La palabra «FORGEINATOR» va en Chakra Petch.
+- **Piezas en `assets/brand/`:**
+  - icono (512, 256, 128; versión sin placa para 64 y 32);
+  - arte de Steam y del QAM: cápsula 600×900, cabecera 920×430 y 460×215, fondo 1920×620 y logo transparente;
+  - vista previa para GitHub 1280×640 y banner del README.
+  Todo se genera desde SVG con `tools/brand/make_brand.py`.
+- **La ventana** lleva el icono de Forgeinator.
+- **`qam-app.json`:** el QAM Rail reconoce Forgeinator con su nombre, `bin/hub` y su arte (al instalar desde un zip conserva `data/`).
+- El README abre con el banner.

@@ -1,3 +1,5 @@
+![Forgeinator 3000 — ¡Contempla el Forgeinator 3000! Forja ports sueltos en juegos jugables.](assets/brand/readme-banner.png)
+
 # Forgeinator 3000
 
 > *¡Contempla el Forgeinator 3000! Forja ports sueltos en juegos jugables.*

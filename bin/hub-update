@@ -32,7 +32,7 @@ DATA = DEST / "data"
 HOME = Path.home()
 MAIN = HOME / "Games" / "actualizaciones"
 DONE = MAIN / "aplicadas"
-CODE = ["bin", "hub", "catalog", "browser", "tools", "main.py", "README.md", "README.es.md", "CHANGELOG.md", "LICENSE", "THIRD_PARTY.md", "VERSION", ".gitignore"]
+CODE = ["bin", "hub", "catalog", "browser", "tools", "main.py", "README.md", "README.es.md", "CHANGELOG.md", "LICENSE", "THIRD_PARTY.md", "qam-app.json", "VERSION", ".gitignore"]
 ZIP_RX = re.compile(r"^recomp-hub-update-v(\d+(?:\.\d+)*)\.zip$")
 SH_RX = re.compile(r"^install-hub-v(\d+(?:\.\d+)*)\.sh$")
 
