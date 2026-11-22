@@ -181,3 +181,22 @@ def test_obsidian_es_minimal_con_la_paleta_obsidian():
     for k in ("BG", "PANEL", "PANEL2", "LINE", "TXT", "DIM", "ACC", "OK", "WARN", "ERR"):
         assert a[k] == b[k], k                                   # no pueden divergir: el día que se fusionen, se ve igual
     assert a["HOME"] == b["HOME"] == "posters" and a.get("ANIM") is None
+
+
+def test_version_del_paquete_igual_que_version():
+    """v3.13: el QAM Rail toma la versión de hub/__init__.py; tiene que coincidir con VERSION."""
+    import re
+    from conftest import HUB_SRC
+    v = (HUB_SRC / "VERSION").read_text().strip()
+    m = re.search(r'__version__\s*=\s*"([^"]+)"', (HUB_SRC / "hub" / "__init__.py").read_text())
+    assert m and m.group(1) == v
+
+
+def test_qam_app_json_valido_y_con_arte():
+    import json
+    from conftest import HUB_SRC
+    m = json.loads((HUB_SRC / "qam-app.json").read_text())
+    assert m["id"] == "forgeinator" and m["name"] == "Forgeinator 3000" and (HUB_SRC / m["launch"]).is_file()
+    assert "data" in m["keep"]
+    for k in ("capsule", "header", "hero", "logo", "icon"):
+        assert (HUB_SRC / m["art"][k]).is_file(), k
