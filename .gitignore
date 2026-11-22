@@ -1,0 +1,35 @@
+# ── datos y credenciales del usuario: NUNCA se suben ──
+data/
+.env
+*.env
+credentials.json
+*.key
+*cookies*.txt
+
+# ── registros, cachés y temporales ──
+*.log
+*.log.old
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.part
+*.tmp
+*.bak
+*.prev
+.hub-replaced/
+
+# ── artefactos de compilación y entrega (se generan; van en las releases, no en el repo) ──
+dist/
+build/
+*.zip
+install-hub*.sh
+tests/reports/
+reports/
+
+# ── editores y sistema ──
+.vscode/
+.idea/
+*.swp
+.DS_Store

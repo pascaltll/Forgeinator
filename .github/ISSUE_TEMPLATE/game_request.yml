@@ -1,0 +1,27 @@
+name: Game request / Pedir un juego
+description: Add a port or recompilation to the catalog / Añadir un port o recompilación al catálogo
+labels: [game-request]
+body:
+  - type: input
+    id: repo
+    attributes:
+      label: Project repository / Repositorio del proyecto
+      placeholder: "https://github.com/owner/repo"
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Original platform / Plataforma original
+      placeholder: "PlayStation 2"
+  - type: textarea
+    id: needs
+    attributes:
+      label: What the port needs from your game (serial, format, region) / Qué necesita el port de tu juego
+  - type: checkboxes
+    id: legal
+    attributes:
+      label: Rules / Normas
+      options:
+        - label: The project does not distribute copyrighted game files / El proyecto no distribuye archivos del juego con copyright
+          required: true

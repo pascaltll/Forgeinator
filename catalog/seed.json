@@ -1,0 +1,112 @@
+[
+ {
+  "id": "ctr-ps1",
+  "name": "Crash Team Racing (PS1)",
+  "platform": "PlayStation",
+  "variants": [
+   {
+    "id": "ctr-turbocharged",
+    "label": "Turbocharged",
+    "repo": "CameronRedmore/Crash-Team-Racing-Turbocharged",
+    "folder": "CTR-PS1/Turbocharged",
+    "launcher_id": "ctrnative",
+    "notes": "Port nativo de CTR (PS1). Necesitas tu propia imagen de disco; revisa el README del repo para el archivo exacto."
+   },
+   {
+    "id": "ctr-native-beta",
+    "label": "Native beta 7.1",
+    "repo": "",
+    "folder": "CTR-PS1/Native-beta",
+    "launcher_id": "ctr-native-beta",
+    "notes": "Port antiguo, sin repositorio (no se actualiza). Usa un enlace a tu ctr-u.bin.",
+    "requires": {
+     "formats": [
+      ".bin"
+     ],
+     "place": "assets/ctr-u.bin"
+    }
+   }
+  ]
+ },
+ {
+  "id": "ctr-nitrofueled",
+  "name": "CTR Nitro-Fueled",
+  "repo": "Ryu7w7/OCTR-NitroFueled-PC",
+  "platform": "PlayStation 4",
+  "folder": "CTR-NitroFueled",
+  "notes": "Port para PC de CTR Nitro-Fueled. Necesitas tus propios archivos del juego; revisa el README del repo."
+ },
+ {
+  "id": "gow3-spartanport",
+  "name": "God of War III Remastered (SpartanPort)",
+  "repo": "FelipePrado0/SpartanPort",
+  "platform": "PlayStation 4",
+  "folder": "GOW3",
+  "launcher_id": "gow3",
+  "notes": "Port de God of War III. Necesitas tu propia copia del juego; revisa el README del repo."
+ },
+ {
+  "id": "nfsmw-speedbreaker",
+  "name": "Need for Speed: Most Wanted (SpeedBreaker)",
+  "repo": "SpeedBreakerProject/speedbreaker",
+  "platform": "PC",
+  "folder": "NFSMW/SpeedBreaker",
+  "launcher_id": "nfsmw",
+  "notes": "Proyecto SpeedBreaker. Revisa el README del repo para lo que necesita."
+ },
+ {
+  "id": "bt3",
+  "name": "Dragon Ball Z: Budokai Tenkaichi 3 (Tenkaichi3Decomp)",
+  "repo": "z3xox/Tenkaichi3Decomp",
+  "platform": "PlayStation 2",
+  "variants": [
+   {
+    "id": "bt3-original",
+    "label": "USA original",
+    "folder": "Tenkaichi3Decomp",
+    "launcher_id": "bt3-original",
+    "notes": "Con la imagen USA original del juego. Revisa el README del repo para versión y región."
+   },
+   {
+    "id": "bt3-latino",
+    "label": "Latino (ISO modificada)",
+    "folder": "BT3-Latino",
+    "launcher_id": "bt3-latino",
+    "notes": "Con tu ISO modificada (latino). Al ser modificada, su hash no coincide con el original: Hub te pedirá confirmar el archivo."
+   }
+  ]
+ },
+ {
+  "id": "lcs",
+  "name": "GTA: Liberty City Stories (lcs-recomp)",
+  "repo": "elmasas/lcs-recomp",
+  "platform": "PSP",
+  "folder": "lcs-recomp-upstream",
+  "launcher_id": "lcs",
+  "notes": "Port de PC sobre PSPRecomp (MIT). Necesita tu copia de la versión US v1.05 (ULUS-10041): EBOOT.ELF descifrado + carpeta PSP_GAME en lcs/game/. Sin build de Linux oficial: se compila en distrobox (CMake/Ninja)."
+ },
+ {
+  "id": "gow-ps2",
+  "name": "God of War (PS2 · port PC)",
+  "repo": "danielalves96/gow-pc-port",
+  "platform": "PlayStation 2",
+  "folder": "gow-ps2",
+  "launcher_id": "gow-ps2",
+  "build": {
+   "cmd": "cd '$REPO' && ./install.sh --compiler g++ --jobs $JOBS",
+   "artifact": "run_gow.sh"
+  },
+  "requires": {
+   "formats": [
+    ".iso"
+   ],
+   "serials": [
+    "SCUS-97399"
+   ],
+   "region": "USA",
+   "place": "game/God of War.iso",
+   "note": "Necesitas tu propia imagen USA (SCUS-97399, ~8 GB) y ~30 GB libres. La primera compilación tarda 30-90 min; las siguientes solo recompilan lo que cambió."
+  },
+  "notes": "Recompilación estática de God of War (2005): no es un emulador. Hub clona el repo, lo compila con install.sh en tu contenedor y el launcher lo actualiza (git pull + install.sh) al abrirlo. Guarda partidas en Mcd001.ps2."
+ }
+]

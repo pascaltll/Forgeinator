@@ -1,0 +1,34 @@
+# Receta: compilar un proyecto «recomp» para Linux dentro de un distrobox y jugarlo en el sistema (o dentro del contenedor).
+# Probada a mano con GTA: Vice City Stories (gothamor/gta-vcs-recomp) en Bazzite + Fedora 43.
+[match]
+repos = ["gothamor/gta-vcs-recomp"]
+ids = ["gta-vcs-recomp"]
+
+[container]
+image = "fedora:43"          # igual o MÁS ANTIGUA que el sistema: un binario compilado en una glibc más nueva no arranca fuera del contenedor
+name = "hub-{id}"
+base_packages = ["git", "python3"]
+
+[source]
+git = "https://github.com/{repo}.git"      # solo si la carpeta linux/ no trae ya el código (tools/build.py)
+marker = "tools/build.py"
+
+[deps]
+check = "python3 tools/build.py --check-deps"
+ignore_marker = "(launcher)"               # lo que el propio proyecto marca como solo del lanzador gráfico no se instala
+
+[prepare]
+run = ["python3 tools/deps.py fetch"]      # la release de Windows trae deps/ solo para Windows (falta volk y las cabeceras de Vulkan)
+
+[disc]
+name = "Grand Theft Auto - Vice City Stories (USA).iso"    # el build exige «Vice City Stories» en el nombre
+check = "python3 tools/vcs_disc.py info {iso}"
+
+[build]
+run = ["python3 tools/build.py --recompile"]
+
+[output]
+exe = "build/vcs"
+cwd = "build"
+rpath = true             # además del LD_LIBRARY_PATH de hub-run.sh: el AppImage abre build/vcs directamente, sin ese entorno
+libs = "build/lib"          # las .so del contenedor que le falten al sistema (FFmpeg…) se copian aquí

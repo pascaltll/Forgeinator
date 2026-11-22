@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""Muestra los registros de arranques fallidos (juegos que no abren) listos para pegar en el chat.
+
+  bin/hub-logs            junta los últimos informes en data/launch-logs/ENVIAR.md y lo imprime
+  bin/hub-logs --lista    solo lista los informes guardados
+  bin/hub-logs --trabajo [N]   las últimas N (80) líneas de los trabajos del Hub (COMANDO…, COMPILAR…) de data/hub.log, sin ruido ni colores
+  bin/hub-logs --seguir        igual, pero se queda mostrando las nuevas en vivo (Ctrl+C para salir)
+  bin/hub-logs --ruido         con --trabajo/--seguir: no filtra el ruido
+"""
+import os
+import sys
+from pathlib import Path
+
+ROOT = Path(os.environ.get("HUB_DIR") or Path(__file__).resolve().parent.parent)
+sys.path.insert(0, str(ROOT))
+from hub import config, launchlog, logview  # noqa: E402
+
+if "--trabajo" in sys.argv or "--seguir" in sys.argv:
+    import time
+    quiet = "--ruido" not in sys.argv
+    n = next((int(a) for a in sys.argv[1:] if a.isdigit()), 80)
+    f = config.DATA / "hub.log"
+    try:
+        raw = f.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        sys.exit(f"No hay {f}")
+    print("\n".join(logview.trabajo(raw, n, quiet)))
+    if "--seguir" in sys.argv:
+        seen = len(raw)
+        try:
+            while True:
+                time.sleep(0.7)
+                raw = f.read_text(encoding="utf-8", errors="replace").splitlines()
+                if len(raw) < seen:
+                    seen = 0
+                new = logview.trabajo(raw[seen:], 10**6, quiet)
+                seen = len(raw)
+                if new:
+                    print("\n".join(new), flush=True)
+        except KeyboardInterrupt:
+            pass
+    sys.exit(0)
+
+if "--lista" in sys.argv:
+    for f in launchlog.reports():
+        print(f)
+    sys.exit(0)
+launchlog.scan_orphans()
+p = launchlog.bundle()
+print(p.read_text(encoding="utf-8"))
+print(f"\n(Guardado también en {p})")

@@ -1,0 +1,41 @@
+name: Bug report / Informar de un fallo
+description: Something does not work / Algo no funciona
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never paste tokens, cookies or passwords.** / **Nunca pegues tokens, cookies ni contraseñas.**
+  - type: input
+    id: version
+    attributes:
+      label: Forgeinator version / Versión
+      description: Settings › Maintenance, or the VERSION file / Ajustes › Mantenimiento, o el archivo VERSION
+      placeholder: "3.11"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and system / Equipo y sistema
+      placeholder: "ROG Ally, Bazzite 43, Game Mode"
+  - type: input
+    id: game
+    attributes:
+      label: Game or project (if any) / Juego o proyecto (si aplica)
+      placeholder: "owner/repo"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened and what you expected / Qué pasó y qué esperabas
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / Pasos para reproducirlo
+  - type: textarea
+    id: log
+    attributes:
+      label: Log / Registro (data/hub.log, last lines)
+      render: text

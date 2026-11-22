@@ -1,0 +1,145 @@
+#!/usr/bin/env python3
+"""Ejecuta las pruebas de Recomp Hub (carpeta tests/ dentro de Hub). Sin argumentos: suite completa sin descargas reales.
+
+  bin/hub-tests                 suite completa (offline)
+  bin/hub-tests -k quiver       solo lo que coincida
+  bin/hub-tests --live          además, contra TU daemon de catálogo (no descarga)
+  bin/hub-tests --resumen       muestra el último resultado
+
+Informe en data/tests/informe.md y resumen de una línea en data/tests/resumen.txt.
+Busca solo un Python que sirva (3.11 o más, con pygame y pytest): el de tu terminal si vale; si no, el de miniforge/conda, sus
+entornos, /usr/bin/python3… igual que bin/hub. Para forzar uno: HUB_TESTS_PYTHON=/ruta/python3 bin/hub-tests
+"""
+import datetime
+import glob
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+DEST = Path(os.environ.get("HUB_DIR") or Path(__file__).resolve().parent.parent)
+OUT = DEST / "data" / "tests"
+TESTS = DEST / "tests"
+NEED = (3, 11)
+_PROBE = ("import sys,importlib.util as u;m=[n for n in ('pygame','pytest') if u.find_spec(n) is None];"
+          "print(sys.version.split()[0]);print(','.join(m))")
+
+
+def candidates():
+    """Pythons a probar, en el mismo orden que bin/hub (y además los entornos de conda y el .venv de Hub)."""
+    h = Path.home()
+    out = [os.environ.get("HUB_TESTS_PYTHON"), sys.executable, "python3"]
+    for base in ("miniforge3", "miniconda3", "anaconda3", "mambaforge"):
+        out.append(str(h / base / "bin" / "python3"))
+        out += sorted(glob.glob(str(h / base / "envs" / "*" / "bin" / "python3")))
+    out += ["/usr/bin/python3", str(h / ".local/share/hub-venv/bin/python"), str(DEST / ".venv" / "bin" / "python3")]
+    seen, res = set(), []
+    for c in out:
+        if not c:
+            continue
+        try:
+            rp = os.path.realpath(c) if os.path.sep in c else c
+        except OSError:
+            rp = c
+        if rp not in seen:
+            seen.add(rp)
+            res.append(c)
+    return res
+
+
+def probe(py) -> dict:
+    """{py, ok, version, missing:[...]}: qué le falta a ese Python para las pruebas."""
+    if py == sys.executable:
+        import importlib.util as u
+        miss = [n for n in ("pygame", "pytest") if u.find_spec(n) is None]
+        ver = sys.version.split()[0]
+    else:
+        try:
+            r = subprocess.run([py, "-c", _PROBE], capture_output=True, text=True, timeout=20)
+        except (OSError, subprocess.SubprocessError):
+            return {"py": py, "ok": False, "version": "", "missing": ["no existe"]}
+        if r.returncode:
+            return {"py": py, "ok": False, "version": "", "missing": ["no arranca"]}
+        lines = (r.stdout.strip().splitlines() + ["", ""])[:2]
+        ver, miss = lines[0], [m for m in lines[1].split(",") if m]
+    try:
+        old = tuple(int(x) for x in ver.split(".")[:2]) < NEED
+    except ValueError:
+        old = True
+    if old:
+        miss = [f"Python {ver} (hace falta {NEED[0]}.{NEED[1]} o más)"] + miss
+    return {"py": py, "ok": not miss, "version": ver, "missing": miss}
+
+
+def choose():
+    """(Python elegido o None, lo probado)."""
+    tried = []
+    for c in candidates():
+        p = probe(c)
+        tried.append(p)
+        if p["ok"]:
+            return p, tried
+    return None, tried
+
+
+def explain(tried) -> str:
+    rows = [f"  {p['py']}: " + (", ".join(p["missing"]) or "sirve") for p in tried if p["missing"] != ["no existe"]]
+    best = next((p for p in tried if p["version"] and not any(m.startswith("Python") for m in p["missing"])), None)
+    tip = (f"\nArréglalo con:  {best['py']} -m pip install " + " ".join("pygame-ce" if m == "pygame" else m for m in best["missing"])) if best else \
+        "\nNingún Python 3.11+ encontrado: instala miniforge o usa HUB_TESTS_PYTHON=/ruta/python3."
+    return "No encuentro un Python que sirva para las pruebas (3.11+, pygame y pytest). Probé:\n" + "\n".join(rows) + tip
+
+
+def main(argv):
+    if "--resumen" in argv:
+        f = OUT / "resumen.txt"
+        print(f.read_text() if f.exists() else "Todavía no se han ejecutado las pruebas.")
+        return 0
+    live = "--live" in argv
+    extra = [a for a in argv if a != "--live"]
+    if not (TESTS / "conftest.py").exists():
+        print("No encuentro tests/ dentro de Hub: reinstala con la última versión.")
+        return 2
+    elegido, tried = choose()
+    if not elegido:
+        print(explain(tried))
+        return 2
+    py = elegido["py"]
+    OUT.mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ, HUB_SRC=str(DEST), REPORT_DIR=str(OUT), PYTHONDONTWRITEBYTECODE="1")
+    if live:
+        env.update(CATALOG_LIVE="1")
+    # --continue-on-collection-errors: un archivo que no se puede importar sale como error, pero el resto de la batería se ejecuta igual
+    cmd = [py, "-m", "pytest", "-q", "--continue-on-collection-errors", "--junitxml", str(OUT / "junit.xml"), "-p", "no:cacheprovider", *extra]
+    t0 = datetime.datetime.now()
+    r = subprocess.run(cmd, cwd=str(TESTS), env=env, capture_output=True, text=True)
+    text = (r.stdout or "") + (r.stderr or "")
+    text = "\n".join(ln for ln in text.splitlines() if not ln.startswith(("[match]", "[foco]")))   # ruido de tu biblioteca real
+    last = next((ln for ln in reversed(text.splitlines()) if re.search(r"\b(passed|failed|error)", ln)), "sin resumen de pytest")
+    fallos = [ln for ln in text.splitlines() if ln.startswith(("FAILED", "ERROR"))]
+    resumen = f"{t0:%Y-%m-%d %H:%M} · {'OK' if r.returncode == 0 else 'FALLÓ'} · {last.strip('= ')}"
+    try:
+        ver = (DEST / "VERSION").read_text().strip()
+    except OSError:
+        ver = "?"
+    cabecera = f"Hub {ver} · Python {elegido['version']} ({py}) · tu carpeta personal no se toca: las pruebas usan una casa temporal"
+    (OUT / "resumen.txt").write_text(resumen + "\n", encoding="utf-8")
+    detalle = ""
+    try:
+        d = (OUT / "detalle.md").read_text(encoding="utf-8")
+        detalle = d[d.index("\n## "):] if "\n## " in d else ""        # omitidos, «Cómo se ve», logos…
+    except (OSError, ValueError):
+        pass
+    limpio = "\n".join(ln for ln in text.splitlines() if "DeprecationWarning" not in ln and "pygame.scrap.init" not in ln and not re.match(r"^test_\w+\.py: \d+ warning", ln))
+    salida = f"\n\n## Salida\n\n```\n{limpio[-12000:]}\n```\n" if fallos or r.returncode else ""
+    (OUT / "informe.md").write_text(f"# Pruebas de Recomp Hub\n\n{resumen}\n\n{cabecera}\n\n## Fallos\n\n" + ("\n".join(f"- {x}" for x in fallos) or "ninguno") + salida + "\n" + detalle, encoding="utf-8")
+    print(resumen)
+    if py != sys.executable:
+        print(f"(con {py}: el Python de esta terminal no servía)")
+    print(f"Informe: {OUT / 'informe.md'}")
+    return r.returncode
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

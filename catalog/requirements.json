@@ -1,0 +1,13 @@
+{
+  "_nota": "Lo que pide cada port del disco del juego (por repositorio). Se aplica solo si el catálogo no trae ya ese dato.",
+  "drummingbird1/gow-psp-recomp": {
+    "serials": ["UCUS98653", "UCUS98737"],
+    "region": "USA",
+    "note": "Solo los UMD USA: UCUS98653 (Chains of Olympus) o UCUS98737 (Ghost of Sparta). Las ediciones PSN (NPUG…) o europeas (UCES…) no se reconocen."
+  },
+  "gothamor/gta-vcs-recomp": {
+    "serials": ["SLUS-21590"],
+    "region": "USA",
+    "note": "El nombre del ISO debe contener «Vice City Stories»; solo la edición USA (SLUS-21590)."
+  }
+}

@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""Diagnóstico: ¿por qué Hub no prepara/guarda este archivo? Uso: hub-archivo <archivo> [parte del nombre del juego] [--extraer]
+Sin --extraer no escribe nada: solo mira. Con --extraer hace lo mismo que Hub (extrae a data/.../converted) y comprueba."""
+import os, shutil, sys, zipfile
+from pathlib import Path
+sys.path.insert(0, str(Path(os.environ.get("HUB_DIR", Path(__file__).resolve().parent.parent))))
+os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+from hub import catalog, config, esde, formats, library, roms
+
+args = [a for a in sys.argv[1:] if not a.startswith("--")]
+if not args:
+    sys.exit(__doc__)
+f = Path(args[0]).expanduser()
+name = args[1].lower() if len(args) > 1 else ""
+go = "--extraer" in sys.argv
+cfg = config.settings()
+print(f"archivo: {f}  existe={f.exists()}  tamaño={f.stat().st_size / 1e6:.0f} MB" if f.exists() else f"archivo: {f}  NO EXISTE")
+print("tipo según Hub:", formats.kind(f))
+for t in ("7z", "7zz", "7za", "7zr", "bsdtar", "chdman", "dolphin-tool"):
+    print(f"  herramienta {t}: {shutil.which(t) or '—'}")
+wd = formats.work_dir()
+for d in (wd, Path.home()):
+    print(f"  espacio libre en {d}: {shutil.disk_usage(d).free / 1e9:.1f} GB")
+print("carpetas de ROMs:", [str(r) for r in roms.roots(cfg)])
+print("ajustes: esde_store=%s extract_to_library=%s delete_archive=%s" % tuple(cfg.get(k, "(defecto)") for k in ("esde_store", "extract_to_library", "delete_archive")))
+cand = [e for e in catalog.load() if name in (e.get("name", "") + e.get("id", "")).lower()][:5] if name else []
+if not cand:
+    print(f"no hay juego con «{name}» en el catálogo" if name else "(añade parte del nombre del juego para ver lo que pide el catálogo)")
+    e = {"id": "x", "name": name, "platform": "", "requires": {}}
+else:
+    for c in cand:
+        print("catálogo:", c.get("id"), "|", c.get("name"), "|", c.get("platform"), "| requires =", c.get("requires"))
+    e = cand[0]
+req = e.get("requires") or {}
+print("sistema ES-DE:", esde.system_for(e.get("platform", "")) or "(no reconocido)")
+if f.suffix.lower() == ".zip" and f.exists():
+    try:
+        mem = formats.zip_members(f)
+        print("dentro del zip:", [(n, s) for n, s, _ in mem])
+        print("Hub extraería:", formats._pick([n for n, _, _ in mem], {x.lower() for x in req.get("formats", [])}))
+    except Exception as ex:  # noqa: BLE001
+        print("zip ilegible:", ex)
+if go and f.exists():
+    rs = formats.resolve(f, req)
+    print("resolve:", rs)
+    if rs["path"]:
+        print("match:", library.match(Path(rs["path"]), req))
+        print("compañeros:", esde.companions(Path(rs["path"])))
+else:
+    print("(añade --extraer para probar la extracción y la comparación)")

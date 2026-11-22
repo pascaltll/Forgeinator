@@ -1,0 +1,14 @@
+name: Suggestion / Sugerencia
+description: An idea to improve Forgeinator / Una idea para mejorar Forgeinator
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like? / ¿Qué te gustaría?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why, or what problem does it solve? / ¿Por qué, o qué problema resuelve?

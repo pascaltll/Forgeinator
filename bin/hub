@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Recomp Hub: busca un python con pygame (miniforge/conda tambien: Steam no hereda tu PATH) y registra todo en data/hub.log
+D="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+export PYGAME_HIDE_SUPPORT_PROMPT=1
+mkdir -p "$D/data"
+LOG="$D/data/hub.log"
+case "${1:-}" in
+  --list|--status|--import|--import-community|--add|--latest|--fetch|--help|-h) CLI=1;;
+  *) CLI=0;;
+esac
+if [ "$CLI" = 0 ]; then
+  [ -f "$LOG" ] && [ "$(stat -c %s "$LOG" 2>/dev/null || echo 0)" -gt 1000000 ] && mv -f "$LOG" "$LOG.old"
+  {
+    echo "=== $(date '+%F %T') arranque bin/hub args=[$*] ==="
+    echo "user=$(id -un) HOME=$HOME PATH=$PATH"
+    echo "DISPLAY=${DISPLAY:-} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-} XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-} SDL_VIDEODRIVER=${SDL_VIDEODRIVER:-} GAMESCOPE=${GAMESCOPE_WAYLAND_DISPLAY:-} SteamGameId=${SteamGameId:-}"
+  } >> "$LOG" 2>&1
+  if [ -t 1 ]; then exec > >(tee -a "$LOG") 2>&1; else exec >> "$LOG" 2>&1; fi
+fi
+PY=""
+for cand in python3 "$HOME/miniforge3/bin/python3" "$HOME/miniconda3/bin/python3" "$HOME/anaconda3/bin/python3" "$HOME/mambaforge/bin/python3" /usr/bin/python3 "$HOME/.local/share/hub-venv/bin/python"; do
+  if command -v "$cand" >/dev/null 2>&1 && "$cand" -c 'import pygame' 2>/dev/null; then PY="$cand"; break; fi
+done
+if [ -z "$PY" ]; then
+  if [ "$CLI" = 1 ]; then PY=python3; else
+    echo "ERROR: ningun python con pygame. Probados: python3, miniforge3, miniconda3, anaconda3, /usr/bin/python3"
+    echo "Instala con:  pip install --user --break-system-packages pygame-ce   (o en tu entorno conda)"
+    exit 1
+  fi
+fi
+echo "python elegido: $PY ($("$PY" -V 2>&1))"
+# integridad: tras un apagón o reinicio justo después de actualizar pueden quedar .py de 0 bytes (Hub no arranca: "no tiene atributo ...")
+if [ "$CLI" = 0 ] && [ -n "$(find "$D/hub" "$D/main.py" -maxdepth 1 -name '*.py' ! -name '__init__.py' -size 0 2>/dev/null | head -1)" ]; then
+  echo "[wrapper] AVISO: hay archivos .py vacíos ($(find "$D/hub" "$D/main.py" -maxdepth 1 -name '*.py' ! -name '__init__.py' -size 0 -printf '%f ' 2>/dev/null)); reinstalo desde el zip"
+  HUB_DIR="$D" timeout 180 "$PY" "$D/bin/hub-update" --force 2>&1 | tail -3
+fi
+# actualización por zip: si hay un recomp-hub-update-vX.zip más nuevo en ~/Games/actualizaciones (o Descargas), se instala antes de abrir
+if [ "$CLI" = 0 ] && [ -z "${HUB_NOUPDATE:-}" ] && [ -f "$D/bin/hub-update" ]; then
+  UPD="$(HUB_DIR="$D" timeout 180 "$PY" "$D/bin/hub-update" --auto 2>&1)"
+  [ -n "$UPD" ] && echo "$UPD"
+  case "$UPD" in *"✓ Recomp Hub"*|*"✓ Craftinador"*|*"✓ Forgeinator"*) echo "[wrapper] Hub actualizado: reinicio con el código nuevo"; HUB_NOUPDATE=1 exec "$D/bin/hub" "$@";; esac
+fi
+if [ "$CLI" = 1 ]; then exec "$PY" "$D/main.py" "$@"; fi
+# limpieza de restos de una ejecución anterior (el navegador de Hub, Chromium o un Hub colgado): si quedan vivos, Steam cree que el juego sigue abierto y no deja relanzarlo
+cleanup() { pkill -9 -f "$D/data/browser-venv" 2>/dev/null; pkill -9 -f "$D/browser/hub_browser.py" 2>/dev/null; pkill -9 -f "QtWebEngineProcess.*$D" 2>/dev/null; return 0; }
+OLD="$(pgrep -f "$D/main.py" 2>/dev/null | tr '\n' ' ')"
+# Si esta terminal no tiene pantalla (SSH, otra sesión) y hay un Hub abierto, se usa la pantalla de ESE Hub: antes el nuevo se abría
+# «offscreen» (sin ventana) mientras el visible se cerraba, y parecía que Hub se cerraba solo.
+if [ -n "$OLD" ] && [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}${GAMESCOPE_WAYLAND_DISPLAY:-}" ]; then
+  for p in $OLD; do
+    [ -r "/proc/$p/environ" ] || continue
+    while IFS= read -r -d '' kv; do
+      case "$kv" in DISPLAY=*|WAYLAND_DISPLAY=*|XDG_RUNTIME_DIR=*|XAUTHORITY=*|GAMESCOPE_WAYLAND_DISPLAY=*|SteamGameId=*|SteamAppId=*|DBUS_SESSION_BUS_ADDRESS=*) export "$kv";; esac
+    done < "/proc/$p/environ"
+    echo "[wrapper] esta terminal no tiene pantalla: uso la del Hub abierto (pid $p)"
+    break
+  done
+fi
+if [ -n "$OLD" ]; then echo "[wrapper] hay un Hub anterior vivo ($OLD): lo cierro"; kill -9 $OLD 2>/dev/null; fi
+if [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}${GAMESCOPE_WAYLAND_DISPLAY:-}" ]; then
+  echo "[wrapper] AVISO: no hay pantalla (DISPLAY/WAYLAND_DISPLAY). Hub se abriría sin ventana. Lánzalo desde el escritorio o Steam, o exporta WAYLAND_DISPLAY y XDG_RUNTIME_DIR."
+fi
+cleanup
+# interfaz: sin exec, para anotar en el registro CÓMO terminó (137=SIGKILL/falta de RAM, 143=SIGTERM, 129=SIGHUP, 0=normal)
+rm -f "$D/data/restart.flag"
+HUB_WRAPPER=1 "$PY" "$D/main.py" "$@" &
+CH=$!
+trap 'echo "[wrapper] recibida señal TERM/INT, la reenvío a Hub"; kill -TERM $CH 2>/dev/null' TERM INT
+trap 'echo "[wrapper] recibido HUP (sesión cerrada); Hub lo ignora y sigue"' HUP
+wait $CH; rc=$?
+while kill -0 $CH 2>/dev/null; do wait $CH; rc=$?; done
+cleanup
+echo "=== $(date '+%F %T') Hub terminó con código $rc (0 normal · 137 SIGKILL/OOM · 143 SIGTERM · 139 fallo grave · 129 HUP) ==="
+if [ -f "$D/data/restart.flag" ]; then
+  rm -f "$D/data/restart.flag"
+  echo "[wrapper] reinicio tras actualizar: relanzo Hub dentro de este mismo proceso"
+  HUB_NOUPDATE=1 exec "$D/bin/hub" "$@"
+fi
+if [ "$rc" = 137 ]; then (dmesg 2>/dev/null | grep -i "out of memory\|killed process" | tail -3) || true; fi
+exit $rc

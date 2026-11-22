@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Navegador de Hub (Qt WebEngine). Uso:  hub-browser --setup   (instala PyQt6 + WebEngine, ~150 MB de descarga, ~550 MB en disco)
+#                                       hub-browser [URL] [--zoom 1.5] [--download-dir DIR] [--profile DIR]   |   --check
+D="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+VENV="$D/data/browser-venv"
+LIBS="$D/data/browser-pylibs"
+if [ "${1:-}" = "--setup" ]; then
+  set -e
+  mkdir -p "$D/data"
+  BASEPY="$(command -v python3 || true)"
+  [ -n "$BASEPY" ] || { echo "ERROR: no hay python3"; exit 1; }
+  echo "Python base: $BASEPY ($("$BASEPY" -V 2>&1))"
+  if "$BASEPY" -m venv "$VENV" 2>/dev/null; then
+    echo "Entorno creado en $VENV"
+    "$VENV/bin/pip" install --upgrade pip 2>&1 | tail -1
+    echo "Descargando PyQt6 y Qt WebEngine (puede tardar varios minutos)…"
+    "$VENV/bin/pip" install PyQt6 PyQt6-WebEngine
+  else
+    echo "No pude crear un venv; instalo en $LIBS"
+    "$BASEPY" -m pip install --break-system-packages --target "$LIBS" PyQt6 PyQt6-WebEngine
+  fi
+  echo "Comprobando…"
+  exec "$0" --check-full
+fi
+PY=""
+if [ -x "$VENV/bin/python" ]; then PY="$VENV/bin/python"; fi
+if [ -z "$PY" ] && [ -d "$LIBS" ]; then PY="$(command -v python3)"; export PYTHONPATH="$LIBS${PYTHONPATH:+:$PYTHONPATH}"; fi
+if [ -z "$PY" ]; then PY="${HUB_BROWSER_PY:-}"; fi
+if [ -z "$PY" ]; then
+  for c in python3 "$HOME/miniforge3/bin/python3"; do
+    if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import importlib.util as u,sys; sys.exit(0 if u.find_spec("PyQt6.QtWebEngineWidgets") else 1)' 2>/dev/null; then PY="$c"; break; fi
+  done
+fi
+[ -n "$PY" ] || { echo "El navegador de Hub no está instalado (ejecuta: $0 --setup)" >&2; exit 3; }
+exec "$PY" "$D/browser/hub_browser.py" "$@"

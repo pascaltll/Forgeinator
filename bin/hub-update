@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+"""Actualiza Recomp Hub desde un ZIP (o un install-hub-vN.sh suelto) que sueltas en una carpeta. Solo biblioteca estándar.
+
+  hub-update                 busca, instala lo más nuevo y avisa
+  hub-update --check         solo dice qué haría (no instala)
+  hub-update --force         instala aunque la versión no sea mayor
+  hub-update --file RUTA     usa ese zip/.sh
+  hub-update --auto          lo que usa bin/hub al abrir (silencioso; respeta el ajuste auto_update)
+  hub-update --rollback      vuelve a la copia anterior
+
+Dónde busca (nombres exactos):  recomp-hub-update-vX.Y.zip  y  install-hub-vX.Y.sh
+  ~/Games/actualizaciones (principal) · ~/Downloads · ~/Descargas · ~/Nextcloud/Downloads · $HUB_UPDATE_DIRS (separadas por «:»)
+El zip lleva dentro install-hub-vX.Y.sh y, si quieres, install-hub-tests-vX.Y.sh y SHA256SUMS (se verifica si está).
+Antes de instalar guarda el código actual en data/backups/ (tus datos NO se tocan); si algo falla, lo restaura solo.
+"""
+import argparse
+import datetime
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tarfile
+import tempfile
+import zipfile
+from pathlib import Path
+
+DEST = Path(os.environ.get("HUB_DIR") or Path(__file__).resolve().parent.parent)
+DATA = DEST / "data"
+HOME = Path.home()
+MAIN = HOME / "Games" / "actualizaciones"
+DONE = MAIN / "aplicadas"
+CODE = ["bin", "hub", "catalog", "browser", "tools", "main.py", "README.md", "README.es.md", "CHANGELOG.md", "LICENSE", "THIRD_PARTY.md", "VERSION", ".gitignore"]
+ZIP_RX = re.compile(r"^recomp-hub-update-v(\d+(?:\.\d+)*)\.zip$")
+SH_RX = re.compile(r"^install-hub-v(\d+(?:\.\d+)*)\.sh$")
+
+
+def vt(s):
+    return tuple(int(x) for x in re.findall(r"\d+", s or "0")) or (0,)
+
+
+def installed():
+    try:
+        return (DEST / "VERSION").read_text().strip() or "0"
+    except OSError:
+        return "0"
+
+
+def say(m, quiet=False):
+    if not quiet:
+        print(m, flush=True)
+
+
+def folders():
+    out = [MAIN, HOME / "Downloads", HOME / "Descargas", HOME / "Nextcloud" / "Downloads"]
+    out += [Path(x).expanduser() for x in os.environ.get("HUB_UPDATE_DIRS", "").split(":") if x]
+    seen, res = set(), []
+    for d in out:
+        if d.is_dir() and str(d) not in seen:
+            seen.add(str(d))
+            res.append(d)
+    return res
+
+
+def candidates():
+    found = []
+    for d in folders():
+        try:
+            for p in d.iterdir():
+                m = ZIP_RX.match(p.name) or SH_RX.match(p.name)
+                if m and p.is_file():
+                    found.append((vt(m.group(1)), m.group(1), p))
+        except OSError:
+            continue
+    found.sort(key=lambda t: (t[0], t[2].suffix == ".zip"))
+    return found
+
+
+def sha256(p):
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        for c in iter(lambda: f.read(1 << 20), b""):
+            h.update(c)
+    return h.hexdigest()
+
+
+def unpack(src, work):
+    """Devuelve (install_sh, tests_sh|None, avisos)."""
+    notes = []
+    if src.suffix == ".sh":
+        return src, None, notes
+    if not zipfile.is_zipfile(src):
+        raise RuntimeError(f"{src.name} no es un zip válido")
+    with zipfile.ZipFile(src) as z:
+        for n in z.namelist():
+            if n.startswith("/") or ".." in Path(n).parts:
+                raise RuntimeError(f"nombre peligroso dentro del zip: {n}")
+        z.extractall(work)
+    files = [p for p in Path(work).rglob("*") if p.is_file()]
+    inst = [p for p in files if SH_RX.match(p.name)]
+    if not inst:
+        raise RuntimeError("el zip no trae install-hub-vX.Y.sh")
+    inst = sorted(inst, key=lambda p: vt(SH_RX.match(p.name).group(1)))[-1]
+    tests = [p for p in files if re.match(r"^install-hub-tests-v\d+\.sh$", p.name)]
+    sums = [p for p in files if p.name == "SHA256SUMS"]
+    if sums:
+        bad = []
+        for ln in sums[0].read_text().splitlines():
+            m = re.match(r"^([0-9a-fA-F]{64})\s+\*?(.+)$", ln.strip())
+            if not m:
+                continue
+            f = sums[0].parent / m.group(2).strip()
+            if f.is_file() and sha256(f).lower() != m.group(1).lower():
+                bad.append(f.name)
+            elif not f.is_file():
+                bad.append(f.name + " (falta)")
+        if bad:
+            raise RuntimeError("SHA-256 no coincide: " + ", ".join(bad))
+        notes.append("SHA-256 del zip verificado")
+    else:
+        notes.append("el zip no trae SHA256SUMS: no se pudo verificar")
+    return inst, (sorted(tests)[-1] if tests else None), notes
+
+
+def backup(ver):
+    bk = DATA / "backups"
+    bk.mkdir(parents=True, exist_ok=True)
+    f = bk / f"hub-{ver}-{datetime.datetime.now():%Y%m%d-%H%M%S}.tgz"
+    with tarfile.open(f, "w:gz") as t:
+        for n in CODE:
+            if (DEST / n).exists():
+                t.add(DEST / n, arcname=n, filter=lambda ti: None if "__pycache__" in ti.name else ti)
+    old = sorted(bk.glob("hub-*.tgz"))
+    for x in old[:-3]:
+        x.unlink(missing_ok=True)
+    return f
+
+
+def restore(f):
+    for n in CODE:
+        p = DEST / n
+        if p.is_dir() and not p.is_symlink():
+            shutil.rmtree(p, ignore_errors=True)
+        elif p.exists() or p.is_symlink():
+            p.unlink()
+    with tarfile.open(f) as t:
+        t.extractall(DEST, filter="data") if sys.version_info >= (3, 12) else t.extractall(DEST)
+
+
+def compile_ok():
+    py = shutil.which("python3") or sys.executable
+    files = [str(DEST / "main.py")] + [str(p) for p in (DEST / "hub").glob("*.py")]
+    r = subprocess.run([py, "-m", "py_compile", *files], capture_output=True, text=True)
+    return r.returncode == 0, (r.stderr or "").strip()[-400:]
+
+
+def record(d):
+    DATA.mkdir(parents=True, exist_ok=True)
+    (DATA / "update.json").write_text(json.dumps(d, indent=1, ensure_ascii=False), encoding="utf-8")
+
+
+def apply(src, ver, quiet=False):
+    cur = installed()
+    work = tempfile.mkdtemp(prefix="hub-update-")
+    try:
+        sh, tests, notes = unpack(src, work)
+        for n in notes:
+            say("· " + n, quiet)
+        bk = backup(cur)
+        say(f"· copia de seguridad: {bk.name}", quiet)
+        env = dict(os.environ, FORCE="1", HUB_DIR=str(DEST))
+        r = subprocess.run(["bash", str(sh)], env=env, capture_output=True, text=True)
+        ok, err = (r.returncode == 0), r.stderr[-400:]
+        if ok:
+            ok, err = compile_ok()
+        if ok:
+            try:
+                os.sync()   # a disco ya: un reinicio justo después dejaba archivos de 0 bytes (pasó con downloads.py)
+            except (OSError, AttributeError):
+                pass
+            vacios = [p.name for p in (DEST / "hub").glob("*.py") if p.name != "__init__.py" and p.stat().st_size == 0] + ([] if (DEST / "main.py").stat().st_size else ["main.py"])
+            if vacios:
+                ok, err = False, "archivos vacíos tras instalar: " + ", ".join(vacios)
+        if ok and installed() == cur and cur != ver:
+            (DEST / "VERSION").write_text(ver + "\n")   # instaladores antiguos sin VERSION
+        if not ok:
+            restore(bk)
+            record({"ok": False, "from": cur, "to": ver, "when": datetime.datetime.now().isoformat(timespec="seconds"), "error": err, "source": src.name})
+            say(f"✗ falló ({err or 'error del instalador'}); restauré la versión {cur}")
+            return False
+        if tests:
+            t = HOME / "Games" / "hub_test.sh"
+            if t.exists():
+                shutil.copy2(t, str(t) + ".bak")
+            shutil.copy2(tests, t)
+            t.chmod(0o755)
+            say(f"· tests dejados en {t}", quiet)
+        DONE.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.move(str(src), str(DONE / src.name))
+        except OSError:
+            pass
+        record({"ok": True, "from": cur, "to": installed(), "when": datetime.datetime.now().isoformat(timespec="seconds"), "source": src.name})
+        say(f"✓ Forgeinator {cur} → {installed()}")
+        return True
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def settings_auto():
+    try:
+        return bool(json.loads((DATA / "settings.json").read_text()).get("auto_update", True))
+    except (OSError, ValueError):
+        return True
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--check", action="store_true")
+    ap.add_argument("--force", action="store_true")
+    ap.add_argument("--file")
+    ap.add_argument("--auto", action="store_true")
+    ap.add_argument("--rollback", action="store_true")
+    ap.add_argument("--json", action="store_true", help="solo dice, en JSON, si hay una versión nueva lista (no instala)")
+    a = ap.parse_args()
+    q = a.auto
+    if a.rollback:
+        bks = sorted((DATA / "backups").glob("hub-*.tgz")) if (DATA / "backups").is_dir() else []
+        if not bks:
+            say("No hay copias anteriores.")
+            return 1
+        restore(bks[-1])
+        say(f"Restaurado desde {bks[-1].name} (versión {installed()}).")
+        return 0
+    if a.json:
+        cur = installed()
+        c = candidates()
+        top = c[-1] if c else None
+        new = bool(top and top[0] > vt(cur))
+        print(json.dumps({"current": cur, "new": top[1] if new else None, "file": str(top[2]) if new else None}))
+        return 0
+    if a.auto and not settings_auto():
+        return 0
+    cur = installed()
+    if a.file:
+        p = Path(a.file).expanduser()
+        m = ZIP_RX.match(p.name) or SH_RX.match(p.name)
+        cand = [(vt(m.group(1)) if m else (0,), m.group(1) if m else "?", p)]
+        a.force = True
+    else:
+        cand = candidates()
+    if not cand:
+        say(f"Hub {cur}. No hay zip de actualización en: " + ", ".join(str(d) for d in folders()), q)
+        return 0
+    v, vs, p = cand[-1]
+    if not a.force and v <= vt(cur):
+        say(f"Hub {cur} está al día (lo más nuevo que veo es {vs}: {p.name}).", q)
+        return 0
+    if a.check:
+        say(f"Instalaría {p} ({cur} → {vs}).")
+        return 0
+    say(f"Actualizando Hub {cur} → {vs} desde {p.name}…", q)
+    try:
+        return 0 if apply(p, vs, q) else 2
+    except (RuntimeError, OSError, zipfile.BadZipFile) as ex:
+        record({"ok": False, "from": cur, "to": vs, "when": datetime.datetime.now().isoformat(timespec="seconds"), "error": str(ex), "source": p.name})
+        say(f"✗ no se pudo aplicar {p.name}: {ex}. No se cambió nada.")
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())
