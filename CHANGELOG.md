@@ -1476,3 +1476,8 @@ Medido en 17 pantallas × 6 temas × calidad alta/rendimiento, a 1280×800 y 192
 - **Logo:**
   - el cartucho pixel art con un martillo golpeando el yunque (`tools/brand/pixel_logo.py` → `cartucho.svg`);
   - toda la identidad (iconos, arte de Steam, GitHub, README) se ha regenerado con él, sobre fondo morado noche.
+
+## v3.16 · Juegos visibles cuando el Hub se abre desde el QAM
+- **El problema:** abierto desde el QAM, el Hub no es un «juego de Steam» (no tiene `SteamGameId`). Por eso lanzaba los juegos directamente, sin pasar por Steam, y en el Modo Juego gamescope no los mostraba. El juego seguía en marcha, invisible, y el Hub se cerraba.
+- **Ahora:** en el Modo Juego (gamescope en marcha) los juegos se lanzan siempre por su atajo de Steam, venga de donde venga el Hub.
+- **Si el juego no tiene atajo:** el Hub pregunta antes de lanzarlo a pelo. Desde la ficha se puede añadir a Steam, y queda la opción «Lanzar de todos modos».

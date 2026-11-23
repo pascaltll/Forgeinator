@@ -143,6 +143,21 @@ def _fsig(p):
         return None
 
 
+def _gamescope_running() -> bool:
+    try:
+        for d in os.listdir("/proc"):
+            if d.isdigit():
+                try:
+                    with open(f"/proc/{d}/comm", encoding="utf-8") as f:
+                        if f.read().strip() in ("gamescope", "gamescope-wl", "gamescope-sessio"):
+                            return True
+                except OSError:
+                    continue
+    except OSError:
+        pass
+    return False
+
+
 _MOTION_EV = (pygame.MOUSEMOTION, pygame.FINGERMOTION, pygame.MOUSEWHEEL)
 ANIM = None                                                # fondo animado del tema: "aurora" · "stars" · "embers"
 FONTK = 1.0                                                # la monoespaciada es más ancha: el tema la encoge para que quepa
@@ -1564,6 +1579,19 @@ class UI(*_PARTS):
             self.focus = None
             return
         sc = self.steam_shortcut(lid, e["name"]) if self.via_steam_ok() else None
+        if not sc and self.in_game_mode() and not os.environ.get("SteamGameId") and not e.get("_force_direct"):
+            # v3.16: Hub abierto desde el QAM (no es un juego de Steam) y el juego no tiene atajo: lanzado a pelo, gamescope no lo mostraría
+            def igual(e=e):
+                self.modal = None
+                self.play(dict(e, _force_direct=True))
+            self.modal = {"kind": "choice", "title": "Este juego no tiene atajo en Steam", "prev": None,
+                          "msg": f"En el Modo Juego, «{e['name']}» se abriría sin verse (gamescope solo muestra lo que lanza Steam). Crea su atajo con "
+                                 "«Añadir a Steam» en su ficha, o abre Forgeinator desde Steam.",
+                          "options": [("LANZAR DE TODOS MODOS", igual), ("CANCELAR", lambda: setattr(self, "modal", None))]}
+            self.focus = None
+            print(f"[jugar] «{lid}»: sin atajo de Steam en el Modo Juego y Hub no es un juego de Steam: pregunto antes de lanzarlo a pelo",
+                  file=sys.stderr, flush=True)
+            return
         if sc:
             try:        # v3.10: el acceso de este juego, sin la pantalla del launcher (por si se regeneró con «play --shortcuts»). v3.15: canal activo
                 if chan.is_active():
@@ -1659,8 +1687,18 @@ class UI(*_PARTS):
                        " (su configuración ya no irá a tu carpeta de ROMs)")
 
     def via_steam_ok(self) -> bool:
-        """Solo si Hub corre como juego de Steam (Big Picture lo agrupa todo bajo Hub) y el ajuste está activo."""
-        return bool(self.cfg.get("play_via_steam", True) and os.environ.get("SteamGameId"))
+        """Lanzar por el atajo de Steam del juego: si Hub corre como juego de Steam o, v3.16, si estamos en el Modo Juego aunque a Hub lo
+        abriera otro (el QAM): gamescope solo muestra ventanas que vienen de Steam, y un juego lanzado a pelo quedaba invisible."""
+        return bool(self.cfg.get("play_via_steam", True) and (os.environ.get("SteamGameId") or self.in_game_mode()))
+
+    def in_game_mode(self) -> bool:
+        """v3.16: ¿sesión de gamescope (Modo Juego)? Variables de gamescope o un proceso gamescope en marcha (se mira una vez)."""
+        v = self.__dict__.get("_gm")
+        if v is None:
+            v = bool(os.environ.get("GAMESCOPE_WAYLAND_DISPLAY") or os.environ.get("SteamGameId")
+                     or (os.environ.get("XDG_CURRENT_DESKTOP") or "").lower() == "gamescope" or _gamescope_running())
+            self._gm = v
+        return v
 
     def steam_shortcut(self, lid, name=""):
         now = time.time()
