@@ -19,7 +19,7 @@ if "--trabajo" in sys.argv or "--seguir" in sys.argv:
     import time
     quiet = "--ruido" not in sys.argv
     n = next((int(a) for a in sys.argv[1:] if a.isdigit()), 80)
-    f = config.DATA / "hub.log"
+    f = config.STATE / "hub.log"
     try:
         raw = f.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:

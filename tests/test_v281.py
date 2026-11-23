@@ -49,6 +49,7 @@ def test_cancelar_buildjob_pasa_a_cancelled():
 
 def test_diag_reune_y_tapa_secretos(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DATA", tmp_path / "data")
+    monkeypatch.setattr(config, "STATE", tmp_path / "data")          # v3.15: hub.log va en los registros del canal (aquí, la misma carpeta)
     monkeypatch.setattr(config, "LAUNCHER", tmp_path / "launcher")
     monkeypatch.setattr(Path, "home", classmethod(lambda c: tmp_path))
     (tmp_path / "launcher" / "games").mkdir(parents=True)

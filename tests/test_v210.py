@@ -25,8 +25,9 @@ def _arbol(tmp_path, main):
 
 
 def test_restart_en_wrapper_deja_marca(tmp_path, monkeypatch):
-    from hub import selfupdate
+    from hub import selfupdate, config
     monkeypatch.setattr(selfupdate, "ROOT", tmp_path)
+    monkeypatch.setattr(config, "STATE", tmp_path / "data")       # v3.15: la marca va en los registros del canal (instalación antigua: data/)
     monkeypatch.setenv("HUB_WRAPPER", "1")
     selfupdate.restart()
     assert (tmp_path / "data" / "restart.flag").exists()

@@ -22,6 +22,7 @@ import urllib.parse
 from . import themes as hubthemes
 from . import a11y as a11ymod
 from . import directplay
+from . import channel as chan
 from . import selfupdate, gamedict, buildplan, sfx, auth, build, catalog, config, downloads, gamepad, ghapi, github, install, dlwatch, esde, formats, library, port, roms, hubbrowser, received, gamecfg, cmdjob, artgen, steamsetup, sgdb, artsrc, recompsite, gsfocus, catalogservice, catalogjobs, quiversrc, trash, perf, covers, buildlog, doctor, ghcookies, ghstats, platformart, icons, launchlog, osver, steamlib, power, recipes, peek, discid, fonts, launchwatch, themes_fam, ownwine, lcheck, nethttp, history, diag, haptic, logview
 
 BG = (10, 10, 12)            # estilo Apple oscuro: negro casi puro, capas de gris «sistema»
@@ -970,6 +971,15 @@ class UI(*_PARTS):
             except Exception as ex:  # noqa: BLE001
                 print(f"[receta] {ex}", file=sys.stderr, flush=True)
         t0 = self.__dict__.setdefault("_t_first_pump", now)
+        if not self.__dict__.get("_chan_chk") and now - t0 > 1.5:
+            self._chan_chk = True
+            msg = chan.take_notice() if config.CHANNEL else None
+            if msg:
+                self.toast(msg)
+        if config.CHANNEL == "dev" and not self.__dict__.get("_boot_ok") and now - t0 > chan.BOOT_OK_AFTER:
+            self._boot_ok = True                    # v3.15: dev arrancó bien (red de seguridad: ver hub/channel.py)
+            chan.boot_ok()
+            print(f"[canal] arranque de dev confirmado ({chan.BOOT_OK_AFTER:.0f} s funcionando)", file=sys.stderr, flush=True)
         if not self.__dict__.get("_boot_chk") and now - t0 > 4:
             self._boot_chk = True
             try:
@@ -977,8 +987,8 @@ class UI(*_PARTS):
                     config.save_settings(self.cfg)
             except Exception as ex:  # noqa: BLE001
                 print(f"[launcher] {ex}", file=sys.stderr, flush=True)
-            try:      # v3.10: accesos de Steam sin la pantalla del launcher (o de vuelta a ella)
-                n = directplay.apply_all(self.cfg.get("direct_play", True))
+            try:      # v3.10: accesos de Steam sin la pantalla del launcher (o de vuelta a ella). v3.15: solo el canal activo
+                n = directplay.apply_all(self.cfg.get("direct_play", True)) if chan.is_active() else 0
                 if n:
                     print(f"[arranque directo] {n} acceso(s) de Steam ajustados ({'sin' if self.cfg.get('direct_play', True) else 'con'} pantalla del launcher)",
                           file=sys.stderr, flush=True)
@@ -1555,8 +1565,9 @@ class UI(*_PARTS):
             return
         sc = self.steam_shortcut(lid, e["name"]) if self.via_steam_ok() else None
         if sc:
-            try:        # v3.10: el acceso de este juego, sin la pantalla del launcher (por si se regeneró con «play --shortcuts»)
-                directplay.set_shortcut(lid, self.cfg.get("direct_play", True))
+            try:        # v3.10: el acceso de este juego, sin la pantalla del launcher (por si se regeneró con «play --shortcuts»). v3.15: canal activo
+                if chan.is_active():
+                    directplay.set_shortcut(lid, self.cfg.get("direct_play", True))
             except OSError as ex:
                 print(f"[arranque directo] {lid}: {ex}", file=sys.stderr, flush=True)
             splash = self.cfg.get("steam_splash", True)
@@ -1666,7 +1677,7 @@ class UI(*_PARTS):
         on = self.cfg["direct_play"] = not self.cfg.get("direct_play", True)
         config.save_settings(self.cfg)
         try:
-            n = directplay.apply_all(on)
+            n = directplay.apply_all(on) if chan.is_active() else 0
         except OSError as ex:
             n = 0
             print(f"[arranque directo] {ex}", file=sys.stderr, flush=True)
@@ -3336,28 +3347,28 @@ class UI(*_PARTS):
         self.toast("Stick izquierdo: " + ("activado" if self.cfg["stick_nav"] else "desactivado (usa la cruceta)"))
 
     def _last_update_txt(self):
-        return self.memo(("upd_txt", _fsig(config.DATA / "update.json")), self._last_update_txt_read, 30.0)
+        return self.memo(("upd_txt", _fsig(config.STATE / "update.json")), self._last_update_txt_read, 30.0)
 
     def _last_update_txt_read(self):
         try:
             import json
-            u = json.loads((config.DATA / "update.json").read_text(encoding="utf-8"))
+            u = json.loads((config.STATE / "update.json").read_text(encoding="utf-8"))
             return (f"  ·  actualizado {u['from']} → {u['to']} ({u['when'][:16].replace('T', ' ')})" if u.get("ok")
                     else f"  ·  último intento falló ({u.get('to')}): volvió a {u.get('from')}")
         except (OSError, ValueError, KeyError):
             return ""
 
     def _tests_last_txt(self):
-        return self.memo(("tests_txt", _fsig(config.DATA / "tests" / "resumen.txt")), self._tests_last_txt_read, 30.0)
+        return self.memo(("tests_txt", _fsig(config.STATE / "tests" / "resumen.txt")), self._tests_last_txt_read, 30.0)
 
     def _tests_last_txt_read(self):
         try:
-            return (config.DATA / "tests" / "resumen.txt").read_text(encoding="utf-8").strip() or "todavía no"
+            return (config.STATE / "tests" / "resumen.txt").read_text(encoding="utf-8").strip() or "todavía no"
         except OSError:
             return "todavía no se han ejecutado"
 
     def show_tests_report(self):
-        f = config.DATA / "tests" / "informe.md"
+        f = config.STATE / "tests" / "informe.md"
         try:
             lines = f.read_text(encoding="utf-8", errors="replace").splitlines()[-3000:]
         except OSError:
@@ -3430,6 +3441,8 @@ class UI(*_PARTS):
     def _publish_look(self, request=None):
         """v2.90/v2.91: el motor de temas publica la apariencia activa en data/appearance.json. Un fallo se anota en el log (no corta la interfaz).
         v2.96: conserva la confirmación de la última petición (si no, al arrancar se perdía y la petición vieja se volvía a aplicar)."""
+        if not chan.is_active():
+            return                                  # v3.15: la apariencia que leen el lanzador y el QAM la publica solo el canal activo
         self._ar_load_last()
         try:
             from .themes import publish
@@ -3444,6 +3457,8 @@ class UI(*_PARTS):
         if not force and now - self.__dict__.get("_ar_t", 0) < 1.0:
             return None
         self._ar_t = now
+        if not chan.is_active():
+            return None                             # v3.15: las peticiones de apariencia las atiende solo el canal activo
         from .themes import appearance_request as ar
         path = config.DATA / "appearance-request.json"
         try:
@@ -3602,8 +3617,49 @@ class UI(*_PARTS):
         config.save_settings(self.cfg)
         self.toast("Actualizar al abrir Hub: " + ("sí" if self.cfg["auto_update"] else "no"))
 
+    def channel_txt(self):
+        me, act = config.CHANNEL, chan.active()
+        other = "dev" if me == "stable" else "stable"
+        txt = f"esta copia es {chan.LABEL[me]} {config.VERSION} · activa: {chan.LABEL.get(act, '?')}"
+        if act != me:
+            return txt + " · TOCAR PARA ACTIVAR ESTA"
+        return txt + (f" · TOCAR PARA ACTIVAR {chan.LABEL[other].upper()}" if chan.installed(other) else f" ({chan.LABEL[other]} no instalada)")
+
+    def switch_channel(self):
+        """v3.15: elige qué copia gestiona lo compartido (atajos de Steam, apariencia). Si esta pasa a activa, ajusta los atajos ya."""
+        me, act = config.CHANNEL, chan.active()
+        if not me:
+            return
+        want = me if act != me else ("dev" if me == "stable" else "stable")
+        if want != me and not chan.installed(want):
+            self.toast(f"{chan.LABEL[want]} no está instalada en {chan.copy_dir(want)}")
+            return
+
+        def do():
+            self.modal = None
+            chan.set_active(want)
+            self.memo_clear()
+            n = 0
+            if want == me:
+                try:
+                    n = directplay.apply_all(self.cfg.get("direct_play", True))
+                except OSError as ex:
+                    print(f"[arranque directo] {ex}", file=sys.stderr, flush=True)
+                self._publish_look()
+            print(f"[canal] canal activo: {chan.LABEL[want]}", file=sys.stderr, flush=True)
+            self.toast(f"Canal activo: {chan.LABEL[want]}" + (f" ({n} atajos de Steam ajustados)" if n else
+                       "" if want == me else ". Abre esa copia para que ajuste los atajos de los juegos"))
+        self.modal = {"kind": "choice", "title": f"¿Activar {chan.LABEL[want]}?", "prev": None,
+                      "msg": f"La copia {chan.LABEL[want]} pasará a gestionar los atajos de los juegos en Steam y la apariencia del QAM. "
+                             "La biblioteca es la misma; cada copia guarda sus propios ajustes.",
+                      "options": [(f"ACTIVAR {chan.LABEL[want].upper()}", do), ("CANCELAR", lambda: setattr(self, "modal", None))]}
+        self.focus = None
+
     def update_hub(self):
         """Ajustes → ACTUALIZAR HUB: si hay un zip nuevo lo instala y reinicia; si no, lo dice."""
+        if config.CHANNEL == "stable":
+            self.toast("La versión estable se actualiza desde el QAM: Apps › Forgeinator 3000 (releases de GitHub)")
+            return
         if self.upd_ready:
             self.upd_now()
             return
@@ -3661,7 +3717,7 @@ class UI(*_PARTS):
             txt = doctor.report()
 
             class _L:
-                title, stage, state, logfile = "Doctor", "comprobaciones", "done", config.DATA / "doctor.txt"
+                title, stage, state, logfile = "Doctor", "comprobaciones", "done", config.STATE / "doctor.txt"
                 log = collections.deque(txt.splitlines(), maxlen=400)
             try:
                 _L.logfile.write_text(txt + "\n", encoding="utf-8")
@@ -3673,7 +3729,7 @@ class UI(*_PARTS):
         self.toast("Comprobando…")
 
     def show_hublog(self):
-        f = config.DATA / "hub.log"
+        f = config.STATE / "hub.log"
         try:
             lines = f.read_text(encoding="utf-8", errors="replace").splitlines()[-400:]
         except OSError:
@@ -5828,7 +5884,7 @@ class UI(*_PARTS):
                   file=sys.stderr, flush=True)
             try:
                 from . import logrot
-                if logrot.maybe_rotate(config.DATA / "hub.log"):
+                if logrot.maybe_rotate(config.STATE / "hub.log"):
                     print(f"[registro] hub.log pasó de {logrot.LIMIT // 1048576} MB: lo anterior está en hub.log.old", file=sys.stderr, flush=True)
             except Exception:  # noqa: BLE001
                 pass

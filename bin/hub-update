@@ -28,7 +28,15 @@ import zipfile
 from pathlib import Path
 
 DEST = Path(os.environ.get("HUB_DIR") or Path(__file__).resolve().parent.parent)
-DATA = DEST / "data"
+sys.path.insert(0, str(DEST))
+try:                                   # v3.15: con canal, los registros y las copias de este canal viven fuera del programa
+    from hub import channel as _ch     # noqa: E402
+    CHANNEL = _ch.program_channel(DEST)
+    _LAY = _ch.layout(CHANNEL, DEST)
+    DATA, CONF = _LAY["state"], _LAY["conf"]
+except ImportError:                    # instaladores muy antiguos sin hub/channel.py
+    CHANNEL, DATA = None, DEST / "data"
+    CONF = DATA
 HOME = Path.home()
 MAIN = HOME / "Games" / "actualizaciones"
 DONE = MAIN / "aplicadas"
@@ -211,7 +219,7 @@ def apply(src, ver, quiet=False):
 
 def settings_auto():
     try:
-        return bool(json.loads((DATA / "settings.json").read_text()).get("auto_update", True))
+        return bool(json.loads((CONF / "settings.json").read_text()).get("auto_update", True))
     except (OSError, ValueError):
         return True
 
@@ -226,6 +234,14 @@ def main():
     ap.add_argument("--json", action="store_true", help="solo dice, en JSON, si hay una versión nueva lista (no instala)")
     a = ap.parse_args()
     q = a.auto
+    if CHANNEL == "stable" and not a.file and not a.rollback:
+        # v3.15: la copia estable la actualiza el QAM desde las releases de GitHub (un solo responsable). Los zip de
+        # ~/Games/actualizaciones son del canal dev; a la estable solo se le aplica uno a mano con --file.
+        if a.json:
+            print(json.dumps({"current": installed(), "new": None, "file": None, "channel": "stable"}))
+        else:
+            say("Copia estable: se actualiza desde el QAM (releases de GitHub). Para aplicar un zip a mano: --file ZIP", q)
+        return 0
     if a.rollback:
         bks = sorted((DATA / "backups").glob("hub-*.tgz")) if (DATA / "backups").is_dir() else []
         if not bks:

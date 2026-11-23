@@ -31,15 +31,22 @@ Forgeinator **never downloads games**. Every port needs your own legally obtaine
 
 ## Install
 
-Download `install-hub-vX.sh` from the [latest release](../../releases/latest) and run:
+**As a QAM app (recommended, with [QAM Rail](https://github.com/pascaltll/qam-rail) 0.51 or later):** Apps › Install app › From GitHub › `pascaltll/Forgeinator`. QAM Rail downloads `forgeinator-X.zip` from the [latest release](../../releases/latest), checks its SHA-256, installs it into `~/homebrew/qam-apps/forgeinator` and tells you when a new version is out.
 
-```bash
-bash install-hub-vX.sh            # installs to ~/Games/recomp-hub
-FORCE=1 bash install-hub-vX.sh    # reinstall the code; your data/ is kept
-~/Games/recomp-hub/bin/hub        # open the interface
-```
+**By hand** (without QAM Rail): unzip `forgeinator-X.zip` into `~/homebrew/qam-apps/` and run `~/homebrew/qam-apps/forgeinator/install.sh`. To open it: `~/homebrew/qam-apps/forgeinator/bin/forgeinator` (add it to Steam as a non-Steam game for Game Mode).
 
-Add `~/Games/recomp-hub/bin/hub` to Steam as a non-Steam game to use it from Game Mode. Later versions are applied automatically: drop the `recomp-hub-update-vX.zip` file in `~/Games/actualizaciones`. Installing from the QAM and updating from GitHub releases are planned (see the roadmap below).
+### Channels: stable and dev side by side
+| | Stable | Dev |
+|---|---|---|
+| Folder | `~/homebrew/qam-apps/forgeinator` | `~/homebrew/qam-apps/forgeinator-dev` |
+| Updated by | the QAM (GitHub releases) | `recomp-hub-update-vX.zip` in `~/Games/actualizaciones` |
+| Settings | `~/.config/forgeinator/stable` | `~/.config/forgeinator/dev` |
+
+Both share the library (`~/.local/share/forgeinator`: games, downloads, linked ROMs, art) and the keys (`~/.config/forgeinator`). Only the **active** copy updates the games' Steam shortcuts and the appearance read by the launcher and the QAM. Pick it in Settings › Maintenance › Channel, or with `bin/forgeinator --canal estable|dev|estado`. If dev fails to start twice in a row, stable becomes active again on its own.
+
+`bin/forgeinator --active` always opens the active copy (handy for a single Steam shortcut).
+
+**Old install** (`~/Games/recomp-hub`, from `install-hub-vX.sh`): still works. If you also have Forgeinator in the QAM, the first time a QAM copy opens it copies your `data/` into the shared library (nothing is deleted or moved; big folders are hard-linked), and the old shortcut opens the active QAM copy. `HUB_LEGACY=1` opens the old one anyway.
 
 ## Controls
 
@@ -55,7 +62,7 @@ Add `~/Games/recomp-hub/bin/hub` to Steam as a non-Steam game to use it from Gam
 
 ## Your data and privacy
 
-Your settings, downloads, logs and backups live in `data/` inside the install folder. Your GitHub token is stored in `~/.config/recomp-hub/credentials.json`, outside the project. None of it is part of this repository and none of it is sent anywhere. Forgeinator only talks to GitHub and the services you configure (SteamGridDB, ScreenScraper, your own catalog server).
+Your library lives in `~/.local/share/forgeinator`, your settings in `~/.config/forgeinator/<channel>` and logs in `~/.local/state/forgeinator/<channel>` (on an old install, everything is in `data/`). Your GitHub token is stored in `~/.config/forgeinator/credentials.json` with 600 permissions, outside the program. None of it is part of this repository and none of it is sent anywhere. Forgeinator only talks to GitHub and the services you configure (SteamGridDB, ScreenScraper, your own catalog server).
 
 ## Development
 

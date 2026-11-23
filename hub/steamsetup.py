@@ -38,7 +38,7 @@ def _select(tool: str, target: str, wait=8.0, unit: bool = False) -> tuple:
     """Pide el cambio de sesión SIN bloquearse: en Bazzite la herramienta cierra Steam y puede tardar más que cualquier espera.
     (ok, texto). ok si terminó con 0 o si sigue trabajando pasado `wait` s (está haciendo el cambio). La salida queda en data/session-select.log."""
     import time
-    log = config.DATA / "session-select.log"
+    log = config.STATE / "session-select.log"
     try:
         log.parent.mkdir(parents=True, exist_ok=True)
         fo = open(log, "ab")
@@ -89,7 +89,7 @@ def to_desktop() -> tuple:
         errs.append(f"{target}: {how}")
     clear_autostart()
     try:
-        within = "within a game" in (config.DATA / "session-select.log").read_text(encoding="utf-8", errors="replace")[-3000:]
+        within = "within a game" in (config.STATE / "session-select.log").read_text(encoding="utf-8", errors="replace")[-3000:]
     except OSError:
         within = False
     hint = " SteamOS rechaza el cambio porque Hub corre dentro de un juego de Steam: usa Steam → Energía → Cambiar a escritorio." if within else ""

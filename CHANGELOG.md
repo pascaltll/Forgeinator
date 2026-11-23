@@ -1444,3 +1444,35 @@ Medido en 17 pantallas × 6 temas × calidad alta/rendimiento, a 1280×800 y 192
   - la petición de apariencia se mira como mucho 1 vez por segundo con un `stat`;
   - recalcular un tema cuesta 0,016 ms;
   - hilos acotados.
+
+## v3.15 · Canales estable y dev, app del QAM y logo pixel art
+- **Estable y dev a la vez.** Cada copia del programa sabe su canal por el archivo `CHANNEL`:
+  - estable en `~/homebrew/qam-apps/forgeinator`; se actualiza desde el QAM con las releases de GitHub;
+  - dev en `~/homebrew/qam-apps/forgeinator-dev`; se actualiza como siempre, con los zip de `~/Games/actualizaciones`.
+- **Qué comparten y qué no:**
+  - biblioteca común (juegos, descargas, ROMs enlazadas, arte, cachés) en `~/.local/share/forgeinator`;
+  - claves comunes en `~/.config/forgeinator`;
+  - ajustes de cada canal en `~/.config/forgeinator/<canal>`;
+  - registros de cada canal en `~/.local/state/forgeinator/<canal>`.
+
+  El programa ya no escribe dentro de su carpeta.
+- **Canal activo:** solo esa copia ajusta los atajos de los juegos en Steam y la apariencia que leen el lanzador y el QAM. Se elige en Ajustes › Mantenimiento › Canal o con `bin/forgeinator --canal estable|dev|estado`.
+- **Red de seguridad:** si dev no llega a funcionar 20 s en dos arranques seguidos y la estable está instalada, la activa vuelve a ser la estable, con un aviso.
+- **Migración desde `~/Games/recomp-hub`:**
+  - la primera vez que se abre una copia del QAM, `data/` se copia a la biblioteca común; las carpetas pesadas van con enlaces duros, así que no ocupan más disco;
+  - los .json se reescriben con las rutas nuevas y las claves pasan a `~/.config/forgeinator` con permisos 600;
+  - no se borra ni se mueve nada del origen;
+  - el atajo antiguo abre la copia activa del QAM (`HUB_LEGACY=1` abre la vieja).
+- **`bin/forgeinator`** es el nuevo punto de entrada:
+  - `--active` abre la copia activa;
+  - `--qam-status` da una línea JSON en menos de 2 s (versión, canal y avisos);
+  - `--where` muestra las carpetas de la copia.
+- **Paquetes:** `tools/make_release.py` genera además:
+  - `forgeinator-X.zip`: app del QAM, con `qam-app.json` esquema 1, `install.sh` y `CHANNEL`;
+  - `SHA256SUMS` con las sumas de todo;
+  - con `--dev`, `forgeinator-dev-X.zip`.
+
+  La release de GitHub publica también el zip estable y las sumas. El zip de actualización de siempre respeta el canal de la copia (conserva su `CHANNEL` y regenera su `qam-app.json`).
+- **Logo:**
+  - el cartucho pixel art con un martillo golpeando el yunque (`tools/brand/pixel_logo.py` → `cartucho.svg`);
+  - toda la identidad (iconos, arte de Steam, GitHub, README) se ha regenerado con él, sobre fondo morado noche.

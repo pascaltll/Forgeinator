@@ -35,8 +35,9 @@ def restart():
     vigila, quien relanza: una copia lanzada por fuera moría cuando Steam daba por terminado el «juego» al salir el Hub viejo."""
     if os.environ.get("HUB_WRAPPER"):
         try:
-            (ROOT / "data").mkdir(parents=True, exist_ok=True)
-            (ROOT / "data" / "restart.flag").write_text("1")
+            from . import config
+            config.STATE.mkdir(parents=True, exist_ok=True)
+            (config.STATE / "restart.flag").write_text("1")
             return
         except OSError:
             pass

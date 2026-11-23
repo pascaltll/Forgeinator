@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""Forgeinator 3000 · control sin interfaz (no necesita pygame; responde en menos de 1 s).
+  forgeinator-ctl --qam-status                 una línea JSON: versión, canal de esta copia, canal activo, si está abierta, avisos
+  forgeinator-ctl --canal [estado|estable|dev] ver o elegir el canal activo (el que gestiona los atajos de Steam y la apariencia)
+  forgeinator-ctl --where                      carpetas de esta copia (programa, biblioteca, ajustes, registros)
+  forgeinator-ctl --resolve-active             carpeta de la copia que debe abrirse (aplica la red de seguridad de dev)"""
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(os.environ.get("HUB_DIR") or Path(__file__).resolve().parent.parent)
+sys.path.insert(0, str(ROOT))
+from hub import channel as ch  # noqa: E402
+
+NAMES = {"estable": "stable", "stable": "stable", "dev": "dev", "desarrollo": "dev"}
+
+
+def version(root=ROOT):
+    try:
+        return (Path(root) / "VERSION").read_text().strip()
+    except OSError:
+        return "?"
+
+
+def running(root=ROOT) -> bool:
+    try:
+        r = subprocess.run(["pgrep", "-f", str(Path(root) / "main.py")], capture_output=True, text=True, timeout=2)
+        return r.returncode == 0 and bool(r.stdout.strip())
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def status() -> dict:
+    me, act = ch.CHANNEL, ch.active()
+    notices = []
+    try:
+        n = json.loads(ch.notice_file().read_text(encoding="utf-8"))
+        notices.append({"id": "canal", "title": n.get("texto", "")[:120], "level": "aviso", "action": "--canal estado"})
+    except (OSError, ValueError):
+        pass
+    if me and act and me != act:
+        notices.append({"id": "inactiva", "title": f"Esta copia ({ch.LABEL[me]}) no es la activa: los atajos los gestiona {ch.LABEL[act]}",
+                        "level": "info", "action": "--canal " + ("estable" if me == "stable" else "dev")})
+    return {"version": version(), "channel": me or "legacy", "active": act or "legacy", "running": running(),
+            "installed": {c: ch.installed(c) for c in ch.CHANNELS}, "notices": notices[:3]}
+
+
+def main(argv):
+    if not argv or argv[0] in ("-h", "--help"):
+        print(__doc__)
+        return 0
+    cmd = argv[0]
+    if cmd == "--qam-status":
+        print(json.dumps(status(), ensure_ascii=False))
+        return 0
+    if cmd == "--where":
+        print(json.dumps(ch.describe(), ensure_ascii=False, indent=1))
+        return 0
+    if cmd == "--resolve-active":
+        ch.safety_check()
+        act = ch.active()
+        print(str(ch.copy_dir(act)) if act and ch.installed(act) else str(ROOT))
+        return 0
+    if cmd in ("--canal", "--channel"):
+        want = NAMES.get((argv[1] if len(argv) > 1 else "estado").lower())
+        if want is None:
+            act = ch.active()
+            inst = ", ".join(ch.LABEL[c] + (" (activa)" if c == act else "") for c in ch.CHANNELS if ch.installed(c)) or "ninguna en el QAM"
+            print(f"Esta copia: {ch.LABEL.get(ch.CHANNEL)} {version()} · canal activo: {ch.LABEL.get(act)} · instaladas: {inst}")
+            return 0
+        if not ch.installed(want):
+            print(f"No está instalada la copia {ch.LABEL[want]} ({ch.copy_dir(want)}).", file=sys.stderr)
+            return 1
+        ch.set_active(want)
+        print(f"Canal activo: {ch.LABEL[want]}. Los atajos de los juegos se ajustan la próxima vez que abras esa copia.")
+        return 0
+    print(__doc__, file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

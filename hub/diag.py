@@ -84,7 +84,7 @@ def build(lid: str, name: str = "", folder: str = "", version: str = "") -> Path
         _sec(L, "distrobox list", r.stdout or r.stderr)
     except (OSError, subprocess.SubprocessError):
         _sec(L, "distrobox list", "(distrobox no disponible)")
-    hl = config.DATA / "hub.log"
+    hl = config.STATE / "hub.log"
     try:
         lines = [ln for ln in hl.read_text(encoding="utf-8", errors="replace").splitlines() if lid in ln or "[trabajo]" in ln or "[instalar]" in ln][-80:]
     except OSError:

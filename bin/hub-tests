@@ -19,7 +19,12 @@ import sys
 from pathlib import Path
 
 DEST = Path(os.environ.get("HUB_DIR") or Path(__file__).resolve().parent.parent)
-OUT = DEST / "data" / "tests"
+try:                                   # v3.15: con canal, el informe va a los registros del canal (~/.local/state/forgeinator/<canal>/tests)
+    sys.path.insert(0, str(DEST))
+    from hub import channel as _ch     # noqa: E402
+    OUT = _ch.layout(_ch.program_channel(DEST), DEST)["state"] / "tests"
+except ImportError:
+    OUT = DEST / "data" / "tests"
 TESTS = DEST / "tests"
 NEED = (3, 11)
 _PROBE = ("import sys,importlib.util as u;m=[n for n in ('pygame','pytest') if u.find_spec(n) is None];"

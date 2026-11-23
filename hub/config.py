@@ -1,20 +1,26 @@
-"""Rutas y ajustes de Recomp Hub. Todo lo del usuario vive en data/ (se conserva al reinstalar)."""
+"""Rutas y ajustes de Forgeinator. Instalación antigua: todo en <programa>/data. Con canal (v3.15): ver hub/channel.py."""
 import json
 import os
 from pathlib import Path
 
+from . import channel as _ch
+
 ROOT = Path(__file__).resolve().parent.parent
-DATA = Path(os.environ.get("HUB_DATA") or ROOT / "data")
+CHANNEL = _ch.CHANNEL                 # v3.15: 'stable' | 'dev' | None (instalación antigua en ~/Games/recomp-hub)
+_LAY = _ch.layout()
+DATA = _LAY["data"]                   # biblioteca: común a estable y dev
+CONF = _LAY["conf"]                   # ajustes de este canal
+STATE = _LAY["state"]                 # registros de este canal (hub.log, update.json, pruebas…)
 CACHE = DATA / "cache"
 LAUNCHER = Path(os.environ.get("LAUNCHER_DIR") or "~/Games/launcher").expanduser()  # el launcher unificado
 GAMES_DIR = Path(os.environ.get("HUB_GAMES") or "~/Games").expanduser()            # donde se instalan los ports
-SETTINGS_FILE = DATA / "settings.json"
+SETTINGS_FILE = CONF / "settings.json"
 try:
     VERSION = (Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
 except OSError:
     VERSION = "?"
 # Credenciales: FUERA de la carpeta del proyecto (así no acaban en git). HUB_CONFIG las redirige; con HUB_DATA personalizado (tests) van ahí.
-CONFIG = Path(os.environ.get("HUB_CONFIG") or (DATA if os.environ.get("HUB_DATA") else Path(os.environ.get("XDG_CONFIG_HOME") or "~/.config").expanduser() / "recomp-hub"))
+CONFIG = _LAY["creds"]               # v3.15: con canal, ~/.config/forgeinator (común); instalación antigua, ~/.config/recomp-hub
 
 DEFAULT_SETTINGS = {
     "extract_to_library": True,                 # los archivos comprimidos se extraen y la biblioteca guarda el archivo llano
@@ -51,7 +57,7 @@ DEFAULT_SETTINGS = {
 
 def load_env():
     """DATA/.env o ROOT/.env (CLAVE=valor), sin pisar variables ya definidas (p. ej. GITHUB_TOKEN)."""
-    for f in (DATA / ".env", ROOT / ".env"):
+    for f in (DATA / ".env", CONFIG / ".env", ROOT / ".env"):
         try:
             lines = f.read_text(encoding="utf-8").splitlines()
         except OSError:
@@ -86,7 +92,7 @@ def settings() -> dict:
 
 
 def save_settings(s: dict):
-    DATA.mkdir(parents=True, exist_ok=True)
+    CONF.mkdir(parents=True, exist_ok=True)
     SETTINGS_FILE.write_text(json.dumps(s, indent=1, ensure_ascii=False), encoding="utf-8")
 
 

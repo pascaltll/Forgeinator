@@ -2,11 +2,12 @@
 # Navegador de Hub (Qt WebEngine). Uso:  hub-browser --setup   (instala PyQt6 + WebEngine, ~150 MB de descarga, ~550 MB en disco)
 #                                       hub-browser [URL] [--zoom 1.5] [--download-dir DIR] [--profile DIR]   |   --check
 D="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
-VENV="$D/data/browser-venv"
-LIBS="$D/data/browser-pylibs"
+if [ -f "$D/bin/_dirs.sh" ]; then . "$D/bin/_dirs.sh"; else HUB_CH=""; DATA_DIR="${HUB_DATA:-$D/data}"; STATE_DIR="${HUB_STATE:-$DATA_DIR}"; fi
+VENV="$DATA_DIR/browser-venv"
+LIBS="$DATA_DIR/browser-pylibs"
 if [ "${1:-}" = "--setup" ]; then
   set -e
-  mkdir -p "$D/data"
+  mkdir -p "$DATA_DIR"
   BASEPY="$(command -v python3 || true)"
   [ -n "$BASEPY" ] || { echo "ERROR: no hay python3"; exit 1; }
   echo "Python base: $BASEPY ($("$BASEPY" -V 2>&1))"

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Forgeinator 3000 · identidad gráfica. Genera los SVG fuente y sus PNG (icono, arte de Steam/QAM, GitHub, README).
-Diseño original: yunque de acero, cartucho al rojo vivo sobre él, chispas y la placa «3000».
+Diseño original: cartucho pixel art con un martillo golpeando el yunque y la placa «3000» (tools/brand/pixel_logo.py → cartucho.svg).
 Requiere (solo para generar, no para usar Forgeinator): `pip install cairosvg` y la fuente Chakra Petch (OFL) en ~/.fonts o en data/fonts.
 Uso: python3 tools/brand/make_brand.py [carpeta de salida]   (por defecto assets/brand)"""
 import math
 import random
+import re
 import sys
 from pathlib import Path
 
@@ -15,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "assets" / "brand"
 FONT_DIRS = [Path.home() / ".fonts", ROOT / "data" / "fonts" / "chakrapetch", ROOT / "data" / "fonts"]
 FONT = "Chakra Petch"
-INK, EMBER, HOT, GOLD, STEEL_D, STEEL_L, BG0, BG1 = "#f6efe6", "#ff6a14", "#ffb02e", "#ffd45c", "#262b33", "#8c97a5", "#0d0908", "#2b1610"
+INK, EMBER, HOT, GOLD, STEEL_D, STEEL_L, BG0, BG1 = "#f6efe6", "#ff7138", "#ffd166", "#ffd166", "#262b33", "#8c97a5", "#080613", "#100d20"
 
 DEFS = f"""
 <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a9b3bf"/><stop offset=".18" stop-color="#6c7682"/>
@@ -26,7 +27,7 @@ DEFS = f"""
   <stop offset=".65" stop-color="{EMBER}"/><stop offset="1" stop-color="#c2310b"/></linearGradient>
 <radialGradient id="glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="{HOT}" stop-opacity=".75"/>
   <stop offset=".45" stop-color="{EMBER}" stop-opacity=".28"/><stop offset="1" stop-color="{EMBER}" stop-opacity="0"/></radialGradient>
-<radialGradient id="bg" cx=".5" cy=".62" r=".75"><stop offset="0" stop-color="#4a2214"/><stop offset=".55" stop-color="{BG1}"/>
+<radialGradient id="bg" cx=".5" cy=".62" r=".75"><stop offset="0" stop-color="#2c2048"/><stop offset=".55" stop-color="{BG1}"/>
   <stop offset="1" stop-color="{BG0}"/></radialGradient>
 <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#f0a51c"/></linearGradient>
 <linearGradient id="word" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff7ec"/><stop offset=".62" stop-color="#f3e3cf"/>
@@ -35,47 +36,14 @@ DEFS = f"""
 """
 
 
+CART = (Path(__file__).resolve().parent / "cartucho.svg").read_text(encoding="utf-8")
+CART_BODY = re.sub(r'<rect width="128" height="128" fill="#100D20"/>', "", CART[CART.index(">", CART.index("<svg")) + 1:CART.rindex("</svg>")], count=1)
+
+
 def emblem(s=1.0, sparks=True):
-    """Yunque + cartucho + chispas, dibujado en un cuadro de 512 (origen arriba a la izquierda)."""
-    rnd = random.Random(3000)
-    sp = []
-    if sparks:
-        for i in range(16):
-            a = math.radians(-160 + i * (140 / 15) + rnd.uniform(-4, 4))
-            r0, r1 = rnd.uniform(70, 92), rnd.uniform(118, 182)
-            cx, cy = 262, 214
-            x0, y0, x1, y1 = cx + r0 * math.cos(a), cy + r0 * math.sin(a), cx + r1 * math.cos(a), cy + r1 * math.sin(a)
-            w = rnd.uniform(3.2, 6.5)
-            col = GOLD if i % 3 else "#fff1b8"
-            sp.append(f'<line x1="{x0:.1f}" y1="{y0:.1f}" x2="{x1:.1f}" y2="{y1:.1f}" stroke="{col}" stroke-width="{w:.1f}" stroke-linecap="round"/>')
-        for i in range(9):
-            a = math.radians(rnd.uniform(-170, -10))
-            r = rnd.uniform(150, 215)
-            x, y = 262 + r * math.cos(a), 214 + r * math.sin(a)
-            sp.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{rnd.uniform(3, 6.5):.1f}" fill="{HOT}"/>')
-    anvil = ("M 92 300 L 150 300 C 170 300 176 290 178 280 L 184 262 L 400 262 L 432 262 C 438 262 440 266 440 272 L 440 286 "
-             "C 440 294 434 300 426 300 L 380 300 C 352 300 340 318 336 336 L 330 372 L 368 384 C 378 388 382 394 382 402 L 382 420 "
-             "L 142 420 L 142 402 C 142 394 146 388 156 384 L 194 372 L 188 336 C 184 318 172 306 150 304 Z")
-    horn = "M 184 262 L 184 300 L 150 300 C 112 300 74 292 52 276 C 70 272 118 266 184 262 Z"
-    cart = f"""
-      <g transform="translate(206 150)">
-        <path d="M 0 14 Q 0 0 14 0 L 148 0 Q 162 0 162 14 L 162 112 L 0 112 Z" fill="url(#hot)"/>
-        <rect x="22" y="22" width="118" height="56" rx="8" fill="#ffffff" fill-opacity=".32"/>
-        <rect x="22" y="22" width="118" height="56" rx="8" fill="none" stroke="#7a1d05" stroke-opacity=".45" stroke-width="3"/>
-        {''.join(f'<rect x="{30 + i * 22}" y="90" width="12" height="22" fill="#7a1d05" fill-opacity=".5"/>' for i in range(5))}
-        <path d="M 0 14 Q 0 0 14 0 L 148 0 Q 162 0 162 14" fill="none" stroke="#fff6d6" stroke-width="4" stroke-opacity=".8"/>
-      </g>"""
-    return f"""<g transform="scale({s})">
-      <ellipse cx="262" cy="232" rx="210" ry="170" fill="url(#glow)"/>
-      {''.join(sp)}
-      <ellipse cx="262" cy="428" rx="190" ry="16" fill="#000" fill-opacity=".45" filter="url(#soft)"/>
-      <path d="{anvil}" fill="url(#steel)"/>
-      <path d="{horn}" fill="url(#steel)"/>
-      <rect x="150" y="256" width="290" height="12" rx="5" fill="url(#steelface)"/>
-      <path d="M 186 300 L 334 300" stroke="#1a1d22" stroke-width="3" stroke-opacity=".55"/>
-      {cart}
-      <rect x="196" y="256" width="182" height="10" rx="4" fill="{EMBER}" fill-opacity=".55"/>
-    </g>"""
+    """El logo pixel art (cartucho con yunque y martillo, tools/brand/cartucho.svg) en un cuadro de 512 (origen arriba a la izquierda).
+    Se dibuja a escala 4×s con bordes nítidos; sin el fondo del cartucho, para que se vea el fondo de cada imagen."""
+    return f'<g transform="scale({4 * s:g})" shape-rendering="crispEdges">{CART_BODY}</g>'
 
 
 def plate(x, y, h, rot=-8, txt="3000"):
@@ -115,13 +83,9 @@ def svg(w, h, body, bg=True):
 
 
 def icon(size=512, rounded=True, small=False):
-    r = 104 if rounded else 0
-    em = (f'<g transform="translate(-6 28) scale(1.02)">{emblem(1, sparks=True)}</g>' if small else
-          f'<g transform="translate(6 -4) scale(.95)">{emblem(1)}</g>')
-    body = (f'<clipPath id="c"><rect width="512" height="512" rx="{r}"/></clipPath><g clip-path="url(#c)">'
-            f'<rect width="512" height="512" fill="url(#bg)"/>{em}'
-            f'<rect x="6" y="6" width="500" height="500" rx="{max(0, r - 6)}" fill="none" stroke="{EMBER}" stroke-opacity=".35" stroke-width="5"/>'
-            + ("" if small else plate(370, 444, 70, -7)) + '</g>')
+    """El cartucho tal cual, a escala exacta (512 = 4×, 256 = 2×, 128 = 1×). rounded=True: sin fondo (la silueta del cartucho hace de
+    icono, para el QAM, la ventana y GitHub); rounded=False: con su fondo oscuro, para Steam (que recorta en cuadrado)."""
+    body = ("" if rounded else '<rect width="512" height="512" fill="#100D20"/>') + emblem(1)
     return svg(512, 512, body, bg=False)
 
 
@@ -148,7 +112,7 @@ def main():
     ic, ics = icon(), icon(small=True)
     for px in (512, 256, 128):
         put(f"icon-{px}", ic, px, px)
-    for px in (64, 32):                                          # en tamaños diminutos la placa no se lee: solo el yunque y el cartucho
+    for px in (64, 32):                                          # reducido: el marco, el yunque y los pines siguen leyéndose
         put(f"icon-{px}", ics, px, px)
     put("icon-square", icon(rounded=False), 512, 512)            # icono de Steam (Steam ya redondea)
     # Steam: cápsula vertical 600×900

@@ -1,9 +1,21 @@
 #!/usr/bin/env bash
-# Recomp Hub: busca un python con pygame (miniforge/conda tambien: Steam no hereda tu PATH) y registra todo en data/hub.log
+# Forgeinator: busca un python con pygame (miniforge/conda tambien: Steam no hereda tu PATH) y registra todo en hub.log (data/ o ~/.local/state/forgeinator/<canal>)
 D="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 export PYGAME_HIDE_SUPPORT_PROMPT=1
-mkdir -p "$D/data"
-LOG="$D/data/hub.log"
+if [ -f "$D/bin/_dirs.sh" ]; then . "$D/bin/_dirs.sh"; else HUB_CH=""; DATA_DIR="${HUB_DATA:-$D/data}"; STATE_DIR="${HUB_STATE:-$DATA_DIR}"; fi
+# v3.15: instalación antigua (~/Games/recomp-hub) con Forgeinator ya instalado como app del QAM → abre esa (el canal activo).
+# La copia antigua no se toca ni se borra; HUB_LEGACY=1 la abre igualmente.
+if [ -z "$HUB_CH" ] && [ -z "${HUB_LEGACY:-}${HUB_DATA:-}" ]; then
+  QA="${QAM_APPS_DIR:-$HOME/homebrew/qam-apps}"
+  for c in forgeinator forgeinator-dev; do
+    if [ -x "$QA/$c/bin/forgeinator" ] && [ -f "$QA/$c/CHANNEL" ]; then
+      mkdir -p "$D/data"; echo "=== $(date '+%F %T') instalación antigua: abro Forgeinator del QAM ($QA/$c, canal activo) ===" >> "$D/data/hub.log"
+      exec "$QA/$c/bin/forgeinator" --active "$@"
+    fi
+  done
+fi
+mkdir -p "$DATA_DIR" "$STATE_DIR"
+LOG="$STATE_DIR/hub.log"
 case "${1:-}" in
   --list|--status|--import|--import-community|--add|--latest|--fetch|--help|-h) CLI=1;;
   *) CLI=0;;
@@ -11,7 +23,7 @@ esac
 if [ "$CLI" = 0 ]; then
   [ -f "$LOG" ] && [ "$(stat -c %s "$LOG" 2>/dev/null || echo 0)" -gt 1000000 ] && mv -f "$LOG" "$LOG.old"
   {
-    echo "=== $(date '+%F %T') arranque bin/hub args=[$*] ==="
+    echo "=== $(date '+%F %T') arranque bin/hub args=[$*] canal=${HUB_CH:-antiguo} ==="
     echo "user=$(id -un) HOME=$HOME PATH=$PATH"
     echo "DISPLAY=${DISPLAY:-} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-} XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-} SDL_VIDEODRIVER=${SDL_VIDEODRIVER:-} GAMESCOPE=${GAMESCOPE_WAYLAND_DISPLAY:-} SteamGameId=${SteamGameId:-}"
   } >> "$LOG" 2>&1
@@ -42,7 +54,7 @@ if [ "$CLI" = 0 ] && [ -z "${HUB_NOUPDATE:-}" ] && [ -f "$D/bin/hub-update" ]; t
 fi
 if [ "$CLI" = 1 ]; then exec "$PY" "$D/main.py" "$@"; fi
 # limpieza de restos de una ejecución anterior (el navegador de Hub, Chromium o un Hub colgado): si quedan vivos, Steam cree que el juego sigue abierto y no deja relanzarlo
-cleanup() { pkill -9 -f "$D/data/browser-venv" 2>/dev/null; pkill -9 -f "$D/browser/hub_browser.py" 2>/dev/null; pkill -9 -f "QtWebEngineProcess.*$D" 2>/dev/null; return 0; }
+cleanup() { pkill -9 -f "$DATA_DIR/browser-venv" 2>/dev/null; pkill -9 -f "$D/browser/hub_browser.py" 2>/dev/null; pkill -9 -f "QtWebEngineProcess.*$D" 2>/dev/null; return 0; }
 OLD="$(pgrep -f "$D/main.py" 2>/dev/null | tr '\n' ' ')"
 # Si esta terminal no tiene pantalla (SSH, otra sesión) y hay un Hub abierto, se usa la pantalla de ESE Hub: antes el nuevo se abría
 # «offscreen» (sin ventana) mientras el visible se cerraba, y parecía que Hub se cerraba solo.
@@ -62,7 +74,7 @@ if [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}${GAMESCOPE_WAYLAND_DISPLAY:-}" ]; then
 fi
 cleanup
 # interfaz: sin exec, para anotar en el registro CÓMO terminó (137=SIGKILL/falta de RAM, 143=SIGTERM, 129=SIGHUP, 0=normal)
-rm -f "$D/data/restart.flag"
+rm -f "$STATE_DIR/restart.flag"
 HUB_WRAPPER=1 "$PY" "$D/main.py" "$@" &
 CH=$!
 trap 'echo "[wrapper] recibida señal TERM/INT, la reenvío a Hub"; kill -TERM $CH 2>/dev/null' TERM INT
@@ -71,8 +83,8 @@ wait $CH; rc=$?
 while kill -0 $CH 2>/dev/null; do wait $CH; rc=$?; done
 cleanup
 echo "=== $(date '+%F %T') Hub terminó con código $rc (0 normal · 137 SIGKILL/OOM · 143 SIGTERM · 139 fallo grave · 129 HUP) ==="
-if [ -f "$D/data/restart.flag" ]; then
-  rm -f "$D/data/restart.flag"
+if [ -f "$STATE_DIR/restart.flag" ]; then
+  rm -f "$STATE_DIR/restart.flag"
   echo "[wrapper] reinicio tras actualizar: relanzo Hub dentro de este mismo proceso"
   HUB_NOUPDATE=1 exec "$D/bin/hub" "$@"
 fi

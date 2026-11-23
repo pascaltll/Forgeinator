@@ -943,7 +943,7 @@ DRIVE_LETTERS = ("g", "h", "i", "j")
 
 def installer_runner_text(setup: Path, proton: str, iso=None) -> str:
     """v2.98: antes del instalador crea el prefijo (si no existe) y una unidad propia (G:, o la siguiente libre) que apunta a <juego>/windows.
-    Así el instalador (1) tiene tu ISO a mano en G:\ y (2) mide el espacio libre de TU disco: en Bazzite «Z:» es «/», de solo lectura y casi
+    Así el instalador (1) tiene tu ISO a mano en G:\\ y (2) mide el espacio libre de TU disco: en Bazzite «Z:» es «/», de solo lectura y casi
     sin espacio, y un instalador que mire la raíz de la unidad cree que no caben los ~15 GB aunque /var/home tenga de sobra."""
     letters = " ".join(DRIVE_LETTERS)
     return ("#!/bin/sh\n"

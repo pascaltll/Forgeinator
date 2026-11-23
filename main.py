@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Forgeinator (antes Recomp Hub): catálogo de ports/recomps + gestor de descargas + instalador → launcher unificado."""
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -20,9 +21,22 @@ def main():
     ap.add_argument("--fetch", metavar="ID", help="descarga e instala por terminal (sin interfaz)")
     ap.add_argument("--steam-setup", action="store_true", help="abre directamente la pantalla «Preparar Steam» (la usa el cambio al escritorio)")
     a = ap.parse_args()
+    if config.CHANNEL and not os.environ.get("HUB_DATA"):
+        # v3.15: primera vez como app del QAM: copia (sin borrar ni mover nada) lo de ~/Games/recomp-hub/data a la biblioteca común
+        # y da a este canal sus ajustes. Pasa una sola vez; el informe queda en ~/.local/share/forgeinator/.migrado
+        from hub import channel
+        try:
+            rep = channel.migrate()
+            if rep.get("hecho"):
+                print(f"[canal] biblioteca común preparada desde {rep.get('origen') or 'cero'}: {len(rep['copiado'])} copiados, "
+                      f"pesados {rep['pesado'] or '—'}, omitidos {len(rep['omitido'])}", file=sys.stderr, flush=True)
+            src = channel.seed_settings()
+            if src not in ("propios", ""):
+                print(f"[canal] ajustes de {channel.LABEL[channel.CHANNEL]} tomados de {src}", file=sys.stderr, flush=True)
+        except Exception as ex:  # noqa: BLE001
+            print(f"[canal] no se pudo preparar la biblioteca común: {type(ex).__name__}: {ex}", file=sys.stderr, flush=True)
     config.load_env()
     if a.steam_setup:
-        import os
         os.environ["HUB_START"] = "steam"
     if a.update_awesome:
         from hub import indexers
@@ -91,12 +105,18 @@ def main():
     else:
         import faulthandler
         import logging
-        import os
         faulthandler.enable()
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", stream=sys.stdout)
         log = logging.getLogger("hub")
         sys.excepthook = lambda t, v, tb: log.error("excepcion no controlada", exc_info=(t, v, tb))
         log.info("python %s | args UI | datos %s | launcher %s", sys.version.split()[0], config.DATA, config.LAUNCHER)
+        if config.CHANNEL:
+            from hub import channel
+            if channel.safety_check():
+                log.warning("dev falló %d arranques seguidos: el canal activo vuelve a ser Estable", channel.BOOT_LIMIT)
+            n = channel.boot_begin()
+            if n:
+                log.info("canal dev: arranque %d (se confirma a los %.0f s con la interfaz funcionando)", n, channel.BOOT_OK_AFTER)
         try:
             import pygame
             log.info("pygame %s SDL %s", pygame.version.ver, pygame.version.SDL)

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Forgeinator 3000 · punto de entrada (lo usan el QAM y los atajos de Steam).
+#   forgeinator                      abre ESTA copia
+#   forgeinator --active             abre la copia del canal activo (para un único atajo de Steam que siga al canal)
+#   forgeinator --canal [estado|estable|dev]   ver o cambiar el canal activo
+#   forgeinator --qam-status         una línea JSON para el QAM (versión, canal, avisos)
+D="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+PY="$(command -v python3 || echo /usr/bin/python3)"
+case "${1:-}" in
+  --qam-status|--canal|--channel|--where) exec "$PY" "$D/bin/forgeinator-ctl" "$@";;
+  --active)
+    shift
+    T="$("$PY" "$D/bin/forgeinator-ctl" --resolve-active 2>/dev/null)"
+    if [ -n "$T" ] && [ -x "$T/bin/hub" ]; then exec "$T/bin/hub" "$@"; fi
+    exec "$D/bin/hub" "$@";;
+esac
+exec "$D/bin/hub" "$@"

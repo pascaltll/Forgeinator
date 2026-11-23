@@ -126,17 +126,18 @@ class SettingsMixin:
                 act_row("cat:" + k, t, lambda k=k: self.settings_open(k), desc=d)
             act_row("adv", "TODOS LOS AJUSTES (lista completa)", self.toggle_adv, desc="Todo en una sola lista, por si no encuentras algo")
         y += self.n(10)
-        info = [("Versión de Hub", config.VERSION + self._last_update_txt())] + ([("Descargas", self.cfg["downloads_dir"]), ("Biblioteca", self.cfg["library_dir"]), ("Carpetas vigiladas", ", ".join(self.cfg["watch_dirs"])),
+        info = [("Versión de Hub", config.VERSION + self._last_update_txt())] + ([("Canal", self.memo("chan_txt", self.channel_txt, 2.0)),
+                ("Ajustes de este canal", str(config.CONF)), ("Registros de este canal", str(config.STATE))] if self.adv_open and config.CHANNEL else []) + ([("Descargas", self.cfg["downloads_dir"]), ("Biblioteca", self.cfg["library_dir"]), ("Carpetas vigiladas", ", ".join(self.cfg["watch_dirs"])),
                 ("Juegos instalados en", str(config.GAMES_DIR)), ("Launcher", str(config.LAUNCHER)),
                 ("GitHub", f"con sesión ({self.gh_login or 'token'})" if auth.token() else "sin sesión (límite de 60 consultas/h)"),
                 ("Credenciales", str(auth.FILE) + " (fuera del proyecto)"),
-                ("Catálogo", f"{len(self.entries)} juegos"), ("Datos", str(config.DATA))] if self.adv_open else [])
+                ("Catálogo", f"{len(self.entries)} juegos"), ("Datos" + (" (biblioteca común)" if config.CHANNEL else ""), str(config.DATA))] if self.adv_open else [])
         for k, v in info:
             self.text(k, x0 + self.n(10), self.cy(y), 18, DIM)
             self.text(v, x0 + self.n(280), self.cy(y), 18, TXT, maxw=colw - self.n(290))
             y += self.n(30)
         y += self.n(20)
-        act_row("quit", "SALIR DE RECOMP HUB", lambda: setattr(self, "running", False), "danger")
+        act_row("quit", "SALIR DE FORGEINATOR", lambda: setattr(self, "running", False), "danger")
         self.end()
 
     def settings_open(self, k):
@@ -372,8 +373,14 @@ class SettingsMixin:
         act_row("blog", "COMPILACIONES REGISTRADAS: " + self.memo("blog", buildlog.summary, 5.0), self.show_buildlog)
 
     def _set_maint(self, act_row, section, num_row):
-        act_row("upd", f"ACTUALIZAR HUB (versión {config.VERSION}): " + (f"HAY UNA NUEVA, {self.upd_ready['ver']}" if self.upd_ready else "buscar zip en ~/Games/actualizaciones"),
-                self.update_hub)
+        if config.CHANNEL:                     # v3.15: estable y dev conviviendo
+            act_row("chan", "CANAL: " + self.memo("chan_txt", self.channel_txt, 2.0), self.switch_channel,
+                    desc="Solo la copia activa ajusta los atajos de Steam y la apariencia del QAM. Biblioteca común; ajustes separados")
+        if config.CHANNEL == "stable":
+            act_row("upd", f"ACTUALIZAR HUB (versión {config.VERSION}): llega desde el QAM (releases de GitHub)", self.update_hub)
+        else:
+            act_row("upd", f"ACTUALIZAR HUB (versión {config.VERSION}): " + (f"HAY UNA NUEVA, {self.upd_ready['ver']}" if self.upd_ready else "buscar zip en ~/Games/actualizaciones"),
+                    self.update_hub)
         act_row("updauto", "ACTUALIZAR SOLO AL ABRIR HUB: " + ("SÍ" if self.cfg.get("auto_update", True) else "NO"), self.toggle_autoupdate)
         section("Papelera")
         ops = self.trash_ops()
