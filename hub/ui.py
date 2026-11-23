@@ -957,6 +957,9 @@ class UI(*_PARTS):
         cb = {n: getattr(pygame, "CONTROLLER_BUTTON_" + n, None) for n in names}
         m = {cb["A"]: "A", cb["B"]: "B", cb["X"]: "X", cb["Y"]: "Y", cb["LEFTSHOULDER"]: "LB", cb["RIGHTSHOULDER"]: "RB",
              cb["BACK"]: "SEL", cb["DPAD_UP"]: "UP", cb["DPAD_DOWN"]: "DOWN", cb["DPAD_LEFT"]: "LEFT", cb["DPAD_RIGHT"]: "RIGHT"}
+        g = getattr(pygame, "CONTROLLER_BUTTON_GUIDE", None)
+        if g is not None:
+            m[g] = "MODE"                              # v3.21: la guía por SDL también avisa de que se abre un menú de Steam
         m.pop(None, None)
         self.cbmap = m
         self.keymap = {pygame.K_RETURN: "A", pygame.K_KP_ENTER: "A", pygame.K_ESCAPE: "B", pygame.K_BACKSPACE: "B", pygame.K_x: "X",
@@ -1177,9 +1180,11 @@ class UI(*_PARTS):
             elif self.sdlc and e.type == pygame.CONTROLLERDEVICEADDED:
                 self._open_ctrl(e.device_index)
             elif self.sdlc and e.type == pygame.CONTROLLERBUTTONDOWN and e.button in self.cbmap:
-                self.press(self.cbmap[e.button], hold=True, now=now)
+                # v3.21: el mando que llega por SDL entra en la misma cola que el de evdev, con las mismas protecciones (foco, menú de
+                # Steam encima, pausa tras la guía y la espera CHORD_WIN para «guía + A», el botón del QAM). Antes se pulsaba al instante.
+                self.pad_q.append((self.cbmap[e.button], now))
             elif self.sdlc and e.type == pygame.CONTROLLERBUTTONUP and e.button in self.cbmap:
-                self.held.pop(self.cbmap[e.button], None)
+                self.pad_q.append(("~" + self.cbmap[e.button], now))
             elif self.sdlc and e.type == pygame.CONTROLLERAXISMOTION and e.axis in (pygame.CONTROLLER_AXIS_LEFTX, pygame.CONTROLLER_AXIS_LEFTY):
                 if not self.cfg.get("stick_nav", True):
                     continue
@@ -1241,6 +1246,8 @@ class UI(*_PARTS):
                             self.__dict__.setdefault("_tap_wait", []).append((now, w.key, t.get("modal")))
                             print(f"[toque] clic instantáneo ({dur * 1000:.0f} ms) sobre «{w.key}»: espera 0,25 s por si es un atajo de Steam", file=sys.stderr, flush=True)
                         else:
+                            if self.in_game_mode():            # v3.21: para diagnosticar toques que nadie hizo (el «toque en el centro» del QAM)
+                                print(f"[toque] {kind} {dur * 1000:.0f} ms en {tuple(e.pos)} sobre «{w.key}»", file=sys.stderr, flush=True)
                             self.focus = w.key
                             self.fire(w)
                             self.sfx.play("confirm")

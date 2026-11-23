@@ -16,10 +16,10 @@ def test_modo_juego_sin_steamgameid_lanza_por_steam(ui, monkeypatch):
     ui.cfg["play_via_steam"] = False
     assert not ui.via_steam_ok()
     ui.cfg["play_via_steam"] = True
-    del ui._gm
+    del ui._gm                                              # se recalcula con la variable de gamescope
     monkeypatch.setenv("GAMESCOPE_WAYLAND_DISPLAY", "gamescope-0")
     assert ui.in_game_mode()
-    del ui._gm
+    ui._gm = False                                          # deja la caché puesta (sin volver a mirar /proc en otras pruebas)
 
 
 def test_sin_atajo_pregunta_en_vez_de_lanzar_invisible(H, ui, tmp_path, monkeypatch):
@@ -53,4 +53,4 @@ def test_sin_atajo_pregunta_en_vez_de_lanzar_invisible(H, ui, tmp_path, monkeypa
     finally:
         ui.play_pr = None
         ui.game_pids.clear()
-        del ui._gm
+        ui._gm = False                                          # deja la caché puesta (sin volver a mirar /proc en otras pruebas)

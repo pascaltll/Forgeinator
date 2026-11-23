@@ -1510,3 +1510,9 @@ Medido en 17 pantallas × 6 temas × calidad alta/rendimiento, a 1280×800 y 192
 - **No se repiten los que no existen:** un juego sin carátula en ninguna fuente queda apuntado en `covers/.sin-resultado.json` y no se vuelve a pedir en 14 días. Antes, cada vez que pulsabas el botón se volvían a buscar todos esos. Si solo quedan esos, el botón los reintenta.
 - **libretro como segunda fuente, sin clave** (la que usa RetroArch): para juegos de consola, el índice de cada sistema se baja una vez y se busca en local. También sirve si no tienes clave de SteamGridDB o si Cloudflare la bloquea.
 - **En Ajustes** se ve el avance («descargando 120 de 400…») y cuántas faltan porque no existen en ninguna fuente. `hub.log` anota el resultado y el tiempo (`[carátulas]`).
+
+## v3.21 · El mando por SDL también tiene protección
+- **Qué pasaba:** los botones que llegan por SDL (el mando virtual de Steam) se pulsaban al instante, sin las comprobaciones que ya tenía el lector evdev: foco, menú de Steam encima, pausa tras la guía y la espera para «guía + A». Si la A del botón del QAM llegaba por ahí, pulsaba lo que tuviera el foco.
+- **Ahora:** entran en la misma cola que evdev. La guía de SDL también cuenta como botón Steam.
+- **Diagnóstico:** en el Modo Juego, cada toque que pulsa algo queda en `hub.log`, con su tipo, cuánto duró, dónde fue y qué pulsó (`[toque] dedo 0 ms en (960, 540) sobre «…»`).
+- Basado en el análisis y el parche del chat de QAM Rail.

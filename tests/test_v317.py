@@ -180,7 +180,7 @@ def test_jugar_crea_el_atajo_y_lanza_por_steam(H, ui, tmp_path, monkeypatch, soc
     finally:
         q.close()
         ui.exit_at = None
-        del ui._gm
+        ui._gm = False                                          # deja la caché puesta (sin volver a mirar /proc en otras pruebas)
 
 
 def test_sin_qam_vuelve_a_preguntar(H, ui, tmp_path, monkeypatch, sock):
@@ -191,7 +191,7 @@ def test_sin_qam_vuelve_a_preguntar(H, ui, tmp_path, monkeypatch, sock):
         assert ui.modal and ui.modal["title"] == "Este juego no tiene atajo en Steam" and not lanzados
     finally:
         ui.modal = None
-        del ui._gm
+        ui._gm = False                                          # deja la caché puesta (sin volver a mirar /proc en otras pruebas)
 
 
 def test_hub_como_juego_de_steam_pide_retraso_y_cierra(H, ui, tmp_path, monkeypatch, sock):
@@ -207,7 +207,7 @@ def test_hub_como_juego_de_steam_pide_retraso_y_cierra(H, ui, tmp_path, monkeypa
         q.close()
         ui.exit_at = None
         ui.cfg["close_on_play"] = True
-        del ui._gm
+        ui._gm = False                                          # deja la caché puesta (sin volver a mirar /proc en otras pruebas)
 
 
 def _pad(ui, items):
@@ -280,7 +280,7 @@ def test_clic_del_boton_qam_no_pulsa(ui, monkeypatch):
         ui.pump()
         assert hechos == [1, 1]                                 # el dedo de verdad no espera
     finally:
-        del ui._gm
+        ui._gm = False                                          # deja la caché puesta (sin volver a mirar /proc en otras pruebas)
 
 
 def test_dev_encuentra_el_zip_que_aparto_la_antigua(tmp_path, monkeypatch):
@@ -301,3 +301,32 @@ def test_dev_encuentra_el_zip_que_aparto_la_antigua(tmp_path, monkeypatch):
     env.update(HOME=str(home), HUB_DIR=str(d), XDG_STATE_HOME=str(home / "st"), XDG_CONFIG_HOME=str(home / "cf"), XDG_DATA_HOME=str(home / "sh"))
     r = subprocess.run([_s.executable, str(HUB_SRC / "bin" / "hub-update"), "--json"], capture_output=True, text=True, env=env, timeout=30)
     assert json.loads(r.stdout)["new"] == "3.18", r.stdout + r.stderr
+
+
+def test_mando_por_sdl_tambien_protegido(ui, monkeypatch):
+    """v3.21: los botones del mando que llegan por SDL pasan por la misma cola que evdev: guía + A (botón del QAM) no pulsa nada."""
+    import pygame
+    pulsados = []
+    monkeypatch.setattr(ui, "press", lambda b, hold=False, now=None: pulsados.append(b))
+    monkeypatch.setattr(ui, "_gs_over", lambda: False)
+    if not ui.sdlc:
+        monkeypatch.setattr(ui, "sdlc", object())
+    ui.win_focus, ui.mute_until = True, 0
+    ui._mode_ts.clear() if hasattr(ui, "_mode_ts") else None
+    ui.pad_q.clear()
+    A, G = pygame.CONTROLLER_BUTTON_A, pygame.CONTROLLER_BUTTON_GUIDE
+    assert ui.cbmap[G] == "MODE"
+    pygame.event.post(pygame.event.Event(pygame.CONTROLLERBUTTONDOWN, instance_id=0, button=A))
+    pygame.event.post(pygame.event.Event(pygame.CONTROLLERBUTTONDOWN, instance_id=0, button=G))
+    ui.pump()
+    time.sleep(0.15)
+    ui.pump()
+    ui.pump()
+    assert pulsados == []
+    ui.mute_until = 0
+    ui._mode_ts.clear()
+    pygame.event.post(pygame.event.Event(pygame.CONTROLLERBUTTONDOWN, instance_id=0, button=A))
+    ui.pump()
+    time.sleep(0.15)
+    ui.pump()
+    assert pulsados == ["A"]
