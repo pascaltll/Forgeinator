@@ -281,3 +281,23 @@ def test_clic_del_boton_qam_no_pulsa(ui, monkeypatch):
         assert hechos == [1, 1]                                 # el dedo de verdad no espera
     finally:
         del ui._gm
+
+
+def test_dev_encuentra_el_zip_que_aparto_la_antigua(tmp_path, monkeypatch):
+    """v3.19: la instalación antigua aplicó el zip y lo movió a aplicadas/: la copia dev lo sigue viendo y no lo mueve."""
+    import subprocess
+    import sys as _s
+    home = tmp_path / "h"
+    d = home / "homebrew/qam-apps/forgeinator-dev"
+    d.mkdir(parents=True)
+    (d / "CHANNEL").write_text("dev\n")
+    (d / "VERSION").write_text("3.17\n")
+    for n in ("hub", "bin"):
+        (d / n).symlink_to(HUB_SRC / n)
+    done = home / "Games/actualizaciones/aplicadas"
+    done.mkdir(parents=True)
+    (done / "recomp-hub-update-v3.18.zip").write_bytes(b"PK")
+    env = {k: v for k, v in os.environ.items() if k not in ("HUB_DATA", "HUB_CHANNEL")}
+    env.update(HOME=str(home), HUB_DIR=str(d), XDG_STATE_HOME=str(home / "st"), XDG_CONFIG_HOME=str(home / "cf"), XDG_DATA_HOME=str(home / "sh"))
+    r = subprocess.run([_s.executable, str(HUB_SRC / "bin" / "hub-update"), "--json"], capture_output=True, text=True, env=env, timeout=30)
+    assert json.loads(r.stdout)["new"] == "3.18", r.stdout + r.stderr

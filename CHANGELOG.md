@@ -1499,3 +1499,7 @@ Medido en 17 pantallas × 6 temas × calidad alta/rendimiento, a 1280×800 y 192
 - **Clics con un menú de Steam encima, sin foco o justo después del botón guía:** no se cuentan.
 - **Lo que no cambia:** el dedo en la pantalla táctil y el escritorio funcionan igual que antes.
 - **Registro:** cada caso queda en hub.log con la etiqueta `[toque]`.
+
+## v3.19 · Un mismo zip de actualización sirve para todas las copias
+- **Qué pasaba:** el primero que aplicaba `recomp-hub-update-vX.zip` lo movía a `~/Games/actualizaciones/aplicadas/`, y las demás copias dejaban de verlo. Así, si la instalación antigua se actualizaba primero, la copia dev se quedaba sin la versión nueva.
+- **Ahora:** las copias con canal (dev) también buscan en `aplicadas/` y nunca mueven el zip. Solo lo aparta la instalación antigua.

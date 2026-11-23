@@ -63,6 +63,8 @@ def say(m, quiet=False):
 
 def folders():
     out = [MAIN, HOME / "Downloads", HOME / "Descargas", HOME / "Nextcloud" / "Downloads"]
+    if CHANNEL:                        # v3.19: otra copia (la antigua, o dev) pudo aplicarlo antes y moverlo a aplicadas/
+        out.append(DONE)
     out += [Path(x).expanduser() for x in os.environ.get("HUB_UPDATE_DIRS", "").split(":") if x]
     seen, res = set(), []
     for d in out:
@@ -205,11 +207,12 @@ def apply(src, ver, quiet=False):
             shutil.copy2(tests, t)
             t.chmod(0o755)
             say(f"· tests dejados en {t}", quiet)
-        DONE.mkdir(parents=True, exist_ok=True)
-        try:
-            shutil.move(str(src), str(DONE / src.name))
-        except OSError:
-            pass
+        if not CHANNEL and src.parent != DONE:      # v3.19: solo la instalación antigua lo aparta; dev lo deja para las demás copias
+            DONE.mkdir(parents=True, exist_ok=True)
+            try:
+                shutil.move(str(src), str(DONE / src.name))
+            except OSError:
+                pass
         record({"ok": True, "from": cur, "to": installed(), "when": datetime.datetime.now().isoformat(timespec="seconds"), "source": src.name})
         say(f"✓ Forgeinator {cur} → {installed()}")
         return True
