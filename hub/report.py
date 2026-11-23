@@ -183,7 +183,8 @@ def unseen_fatal() -> dict | None:
 def mark_seen():
     try:
         crash_dir().mkdir(parents=True, exist_ok=True)
-        _seen_file().write_text(f"{time.time():.3f}")
+        newest = max([r.get("ts", 0) for r in crashes()] + [time.time()])
+        _seen_file().write_text(repr(newest))
     except OSError:
         pass
 
