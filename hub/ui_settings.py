@@ -396,5 +396,7 @@ class SettingsMixin:
         act_row("doctor", "DOCTOR", self.run_doctor, desc="Comprueba pantalla, disco, launcher, red y duplicados")
         act_row("launchlogs", f"REGISTROS DE ARRANQUE: {self.memo("launchlogs", lambda: len(launchlog.reports()), 5.0)} guardados", self.send_launchlogs,
                 desc="Junta los arranques fallidos en un archivo para enviármelo")
+        act_row("report", "INFORME DE ERROR O SUGERENCIA: " + self._report_txt(), self.report_menu,
+                desc="Vista previa con tokens, cookies y tu usuario tapados; se guarda como zip o se abre como issue de GitHub")
         act_row("showlog", "VER REGISTRO DE HUB", self.show_hublog, desc="hub.log: errores, coincidencias y mando")
         act_row("perf", "REGISTRAR RENDIMIENTO: " + ("SÍ" if self.perf.on else "NO"), self.toggle_perf, desc="Anota en hub.log los fotogramas lentos")

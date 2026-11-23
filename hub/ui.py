@@ -26,6 +26,7 @@ from . import channel as chan
 from . import qamlink
 from . import remote
 from . import service
+from . import report
 from . import selfupdate, gamedict, buildplan, sfx, auth, build, catalog, config, downloads, gamepad, ghapi, github, install, dlwatch, esde, formats, library, port, roms, hubbrowser, received, gamecfg, cmdjob, artgen, steamsetup, sgdb, artsrc, recompsite, gsfocus, catalogservice, catalogjobs, quiversrc, trash, perf, covers, buildlog, doctor, ghcookies, ghstats, platformart, icons, launchlog, osver, steamlib, power, recipes, peek, discid, fonts, launchwatch, themes_fam, ownwine, lcheck, nethttp, history, diag, haptic, logview
 
 BG = (10, 10, 12)            # estilo Apple oscuro: negro casi puro, capas de gris «sistema»
@@ -250,7 +251,7 @@ class Wd:
 GH_SEARCH = "https://github.com/search?type=repositories"
 
 
-from . import ui_detail, ui_downloads, ui_explore, ui_files, ui_fx, ui_home, ui_homes, ui_modal, ui_recipes, ui_remote, ui_settings  # noqa: E402
+from . import ui_detail, ui_downloads, ui_explore, ui_files, ui_fx, ui_home, ui_homes, ui_modal, ui_recipes, ui_remote, ui_report, ui_settings  # noqa: E402
 
 
 def _adopt(cls):
@@ -268,7 +269,7 @@ def _adopt(cls):
 
 
 _PARTS = tuple(_adopt(m) for m in (ui_fx.FxMixin, ui_home.HomeMixin, ui_homes.HomeLayoutsMixin, ui_explore.ExploreMixin, ui_downloads.DownloadsMixin, ui_settings.SettingsMixin,
-                                   ui_detail.DetailMixin, ui_modal.ModalMixin, ui_files.FilesMixin, ui_recipes.RecipesMixin, ui_remote.RemoteMixin))
+                                   ui_detail.DetailMixin, ui_modal.ModalMixin, ui_files.FilesMixin, ui_recipes.RecipesMixin, ui_remote.RemoteMixin, ui_report.ReportMixin))
 
 
 class UI(*_PARTS):
@@ -994,6 +995,9 @@ class UI(*_PARTS):
             except Exception as ex:  # noqa: BLE001
                 print(f"[receta] {ex}", file=sys.stderr, flush=True)
         t0 = self.__dict__.setdefault("_t_first_pump", now)
+        c = report.CTX                                  # v3.24: contexto para los informes de error (sin E/S)
+        c["pantalla"], c["ajustes"] = self.tab, getattr(self, "set_page", None) if self.tab == "settings" else None
+        c["ventana"], c["tema"] = (self.modal or {}).get("kind"), self.cfg.get("theme")
         q = self.__dict__.get("_uiq")
         while q:                                        # v3.17: lo que los hilos dejan para el hilo de la interfaz
             try:
@@ -1005,6 +1009,9 @@ class UI(*_PARTS):
             msg = chan.take_notice() if config.CHANNEL else None
             if msg:
                 self.toast(msg)
+            elif report.unseen_fatal():                 # v3.24: la última vez el Hub se cerró por un error
+                report.mark_seen()
+                self.toast("La última vez el Hub se cerró por un error. Puedes enviarlo: Ajustes › Mantenimiento › Informe de error")
         if config.CHANNEL == "dev" and not self.__dict__.get("_boot_ok") and now - t0 > chan.BOOT_OK_AFTER:
             self._boot_ok = True                    # v3.15: dev arrancó bien (red de seguridad: ver hub/channel.py)
             chan.boot_ok()
@@ -6181,11 +6188,13 @@ class UI(*_PARTS):
                         self.why = "se perdió el sistema de vídeo y no se pudo reabrir la ventana"
                         break
                     self.fails += 1
+                    report.record_crash(*sys.exc_info(), where="fotograma", fatal=False)
                     print(f"[error] excepción en un fotograma ({self.fails}):\n{traceback.format_exc()}", file=sys.stderr, flush=True)
                     if self.fails == 5:
                         self._safe_reset()
                     if self.fails >= 30:
                         self.why = "30 excepciones seguidas en la interfaz"
+                        report.record_crash(*sys.exc_info(), where="fotograma (30 seguidas)", fatal=True)
                         break
                     time.sleep(0.1)
         finally:

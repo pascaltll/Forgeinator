@@ -108,7 +108,15 @@ def main():
         faulthandler.enable()
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", stream=sys.stdout)
         log = logging.getLogger("hub")
-        sys.excepthook = lambda t, v, tb: log.error("excepcion no controlada", exc_info=(t, v, tb))
+        from hub import report
+
+        def _hook(t, v, tb):
+            log.error("excepcion no controlada", exc_info=(t, v, tb))
+            report.record_crash(t, v, tb, where="python", fatal=True)
+        sys.excepthook = _hook
+        import threading
+        threading.excepthook = lambda a: (log.error("excepcion en el hilo %s", getattr(a.thread, "name", "?"), exc_info=(a.exc_type, a.exc_value, a.exc_traceback)),
+                                          report.record_crash(a.exc_type, a.exc_value, a.exc_traceback, where="hilo", fatal=False))
         log.info("python %s | args UI | datos %s | launcher %s", sys.version.split()[0], config.DATA, config.LAUNCHER)
         if config.CHANNEL:
             from hub import channel
@@ -144,6 +152,7 @@ def main():
             raise
         except Exception:  # noqa: BLE001
             log.exception("error fatal")
+            report.record_crash(*sys.exc_info(), where="arranque o interfaz", fatal=True)
             sys.exit(1)
 
 

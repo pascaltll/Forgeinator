@@ -260,7 +260,7 @@ class ModalMixin:
             src = list(b.log)
             shown = logview.lines(src, quiet, 1500)
             ocultas = len(src) - len(logview.lines(src, True)) if quiet else 0
-            tb = [("lg:copy", "COPIAR", self.log_copy), ("lg:save", "GUARDAR", self.log_save),
+            tb = getattr(b, "actions", None) or [("lg:copy", "COPIAR", self.log_copy), ("lg:save", "GUARDAR", self.log_save),
                   ("lg:noise", "RUIDO: OCULTO" if quiet else "RUIDO: VISIBLE", self.log_noise),
                   ("lg:top", "AL PRINCIPIO", lambda: self.log_jump(False)), ("lg:end", "AL FINAL", lambda: self.log_jump(True))]
             gap = self.n(10)

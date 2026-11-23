@@ -1523,6 +1523,13 @@ Medido en 17 pantallas × 6 temas × calidad alta/rendimiento, a 1280×800 y 192
 - **Cómo funciona:** el transporte lo hace rclone, que tiene que estar instalado (`brew install rclone`). La contraseña se guarda oscurecida y con permisos 600, aparte de la biblioteca. Nunca pisa un juego que ya tienes, y lo que queda a medias se renombra a `.incompleto`. Una descarga a la vez; su avance se ve en la fila de Ajustes, y tocarla durante una descarga la cancela.
 - **Protocolo y siguientes pasos:** el servicio de descargas separado (las descargas seguirán aunque se cierre el Hub) y la tarjeta del QAM están en el proyecto: `claude/forgeinator-servicio-protocolo.md`.
 
+## v3.24 · Informe de error y sugerencias (E3)
+- **Errores guardados:** cada cierre del Hub por un error, cada excepción en un fotograma (una vez por pila distinta) y cada error en un hilo se guarda en `~/.local/state/forgeinator/<canal>/errores/` con su contexto: pantalla, página de Ajustes, ventana abierta, tema, versión y canal. Se guardan los 20 últimos.
+- **Aviso al arrancar:** si la última vez el Hub se cerró por un error, lo dice una vez y te indica dónde enviarlo.
+- **Ajustes › Mantenimiento › Informe de error o sugerencia:** eliges «Informar de un error» (o uno de los últimos errores guardados) o «Enviar una sugerencia», escribes qué pasó y ves una **vista previa**. El informe lleva la versión, el sistema, el contexto, el último error y el final de `hub.log` y `forgeinatord.log`, sin ruido.
+- **Secretos tapados antes de la vista previa:** los valores reales de tus credenciales (token de GitHub, contraseñas de las bibliotecas remotas, cookies de GitHub, clave de SteamGridDB, `.env`, variables con TOKEN/KEY/SECRET/PASS), los tokens, «Bearer», «clave=valor», usuario y contraseña dentro de direcciones, tu usuario en las rutas (`/home/<usuario>` → `~`), el nombre del equipo y las IP (salvo 127.0.0.1).
+- **Dos salidas:** GUARDAR ZIP (`~/forgeinator-informe-<fecha>.zip`) y ABRIR ISSUE EN GITHUB (issue ya rellenado, por enlace y sin token; si no cabe en la dirección se recorta el registro y el zip completo queda guardado para adjuntarlo).
+
 ## v3.23 · forgeinatord: las descargas remotas siguen aunque cierres el Hub
 - **Servicio propio:** las descargas de las bibliotecas remotas las hace un servicio sin ventana, `forgeinatord`. Lo arranca el Hub cuando hace falta (con `systemd --user` si está disponible) y se apaga solo tras 10 min sin trabajo. Sigue bajando con el Hub cerrado o con un juego abierto.
 - **Cola:**
