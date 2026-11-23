@@ -159,6 +159,7 @@ def _gamescope_running() -> bool:
     return False
 
 
+TAP_WAIT = 0.25                                        # v3.18: espera de un clic «instantáneo» (posible atajo de Steam)
 CHORD_WIN = 0.12                                       # v3.17: ventana para reconocer «guía + botón» (atajos de Steam)
 _MOTION_EV = (pygame.MOUSEMOTION, pygame.FINGERMOTION, pygame.MOUSEWHEEL)
 ANIM = None                                                # fondo animado del tema: "aurora" · "stars" · "embers"
@@ -1209,7 +1210,7 @@ class UI(*_PARTS):
                 if v:
                     v.vel = 0
                 self.touch = {"pos": e.pos, "last": e.pos, "view": v, "drag": False, "t": now, "hot": w.key if w else None, "samples": [],
-                              "modal": id(self.modal) if self.modal else None}
+                              "modal": id(self.modal) if self.modal else None, "finger": bool(getattr(e, "touch", False))}
             elif e.type == pygame.MOUSEMOTION and self.touch and e.buttons[0]:
                 t = self.touch
                 dy = e.pos[1] - t["last"][1]
@@ -1229,15 +1230,39 @@ class UI(*_PARTS):
                     if w and (w.key != t.get("hot") or (id(self.modal) if self.modal else None) != t.get("modal")):
                         w = None
                     if w and w.cb:
-                        self.focus = w.key
-                        self.fire(w)
-                        self.sfx.play("confirm")
+                        dur = now - t["t"]
+                        kind = "dedo" if t.get("finger") else "ratón"
+                        # v3.18: el botón del QAM llegaba como un clic en la pantalla y pulsaba lo que hubiera debajo (JUGAR → juego).
+                        # Un clic con un menú de Steam encima, justo tras el botón guía o sin foco no se cuenta; uno «instantáneo» de ratón
+                        # (pulsar y soltar en menos de 30 ms, como los sintéticos) espera 0,25 s en el Modo Juego por si se abre un menú encima.
+                        if not self.win_focus or self._gs_over() or now < self.mute_until:
+                            print(f"[toque] {kind} sobre «{w.key}» ignorado: menú de Steam encima / sin foco / tras el botón guía", file=sys.stderr, flush=True)
+                        elif not t.get("finger") and dur < 0.03 and self.in_game_mode():
+                            self.__dict__.setdefault("_tap_wait", []).append((now, w.key, t.get("modal")))
+                            print(f"[toque] clic instantáneo ({dur * 1000:.0f} ms) sobre «{w.key}»: espera 0,25 s por si es un atajo de Steam", file=sys.stderr, flush=True)
+                        else:
+                            self.focus = w.key
+                            self.fire(w)
+                            self.sfx.play("confirm")
                 elif t["view"] and t["samples"]:
                     ts = t["samples"]
                     dt = max(0.016, ts[-1][0] - ts[0][0])
                     if now - ts[-1][0] < 0.1:
                         t["view"].vel = -sum(d for _, d in ts) / dt
         self._check_long_press(now)
+        tw = self.__dict__.get("_tap_wait")
+        while tw and now - tw[0][0] >= TAP_WAIT:        # v3.18: clics instantáneos en espera (ver arriba)
+            t_up, key, mid = tw.pop(0)
+            lost = (not self.win_focus or self._gs_over() or self.lost_at > t_up or self.mute_until > t_up
+                    or (id(self.modal) if self.modal else None) != mid)
+            w = next((x for x in self.widgets if x.key == key), None)
+            if lost or not w or not w.cb:
+                print(f"[toque] clic instantáneo sobre «{key}» descartado ({'se abrió un menú o cambió el foco' if lost else 'ya no está'})",
+                      file=sys.stderr, flush=True)
+                continue
+            self.focus = w.key
+            self.fire(w)
+            self.sfx.play("confirm")
         for a, (t0, tl) in list(self.held.items()):
             if now - t0 > 6.0:                         # red de seguridad: nadie mantiene la cruceta 6 s; si se perdió el «soltar», no repetir para siempre
                 self.held.pop(a, None)

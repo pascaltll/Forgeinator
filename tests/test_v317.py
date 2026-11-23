@@ -244,3 +244,40 @@ def test_boton_qam_guia_mas_a_no_pulsa(ui, monkeypatch):
     time.sleep(0.15)
     ui.pump()
     assert pulsados == ["A", "DOWN"]
+
+
+def test_clic_del_boton_qam_no_pulsa(ui, monkeypatch):
+    """v3.18: en el Modo Juego, el botón del QAM llega como un clic instantáneo: espera 0,25 s y se descarta si se abre un menú."""
+    import pygame
+    hechos = []
+    ui.modal = None
+    ui.go_tab("home")
+    run(ui, 2)
+    w = next(x for x in ui.widgets if x.cb and x.rect.w > 20)
+    monkeypatch.setattr(w, "cb", lambda: hechos.append(1))
+    monkeypatch.setattr(ui, "_widget_at", lambda pos: w)
+    ui._gm, ui.win_focus, ui.mute_until = True, True, 0
+    over = [False]
+    monkeypatch.setattr(ui, "_gs_over", lambda: over[0])
+    try:
+        pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=w.rect.center, button=1))
+        pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONUP, pos=w.rect.center, button=1))
+        ui.pump()
+        assert hechos == []                                     # en espera
+        over[0] = True                                          # se abre el QAM encima
+        time.sleep(0.3)
+        ui.pump()
+        assert hechos == []
+        over[0] = False
+        pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=w.rect.center, button=1))
+        pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONUP, pos=w.rect.center, button=1))
+        ui.pump()
+        time.sleep(0.3)
+        ui.pump()
+        assert hechos == [1]                                    # sin menú encima, se pulsa (con 0,25 s de retraso)
+        pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=w.rect.center, button=1, touch=True))
+        pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONUP, pos=w.rect.center, button=1, touch=True))
+        ui.pump()
+        assert hechos == [1, 1]                                 # el dedo de verdad no espera
+    finally:
+        del ui._gm

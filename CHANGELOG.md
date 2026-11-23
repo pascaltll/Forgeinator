@@ -1492,3 +1492,10 @@ Medido en 17 pantallas × 6 temas × calidad alta/rendimiento, a 1280×800 y 192
 - **Arreglo · el botón del QAM abría un juego.**
   - **Qué pasaba:** el botón del QAM le llega al Hub como «guía + A» (el atajo de Steam para abrir el QAM). Dentro de un mismo informe del mando, la A va antes que la guía, así que se procesaba primero y pulsaba lo que tuviera el foco: JUGAR abría el juego, sin verse, detrás del QAM.
   - **Ahora:** cada botón espera 0,12 s antes de procesarse. Si la guía llega dentro de ese margen, el botón se descarta y queda anotado en hub.log como `[foco] A junto al botón Steam/guía`. Las direcciones no esperan.
+
+## v3.18 · El botón del QAM ya no pulsa lo que hay en pantalla
+- **Qué pasaba:** en el Modo Juego, el botón del QAM también le llega al Hub como un clic en la pantalla, que pulsaba lo que hubiera debajo. Si debajo estaba JUGAR, el juego se abría detrás del QAM.
+- **Clics de ratón instantáneos** (pulsar y soltar en menos de 30 ms, como los que genera el sistema): ahora esperan 0,25 s. Si en ese tiempo se abre un menú de Steam, se pierde el foco o llega el botón guía, el clic se descarta.
+- **Clics con un menú de Steam encima, sin foco o justo después del botón guía:** no se cuentan.
+- **Lo que no cambia:** el dedo en la pantalla táctil y el escritorio funcionan igual que antes.
+- **Registro:** cada caso queda en hub.log con la etiqueta `[toque]`.
