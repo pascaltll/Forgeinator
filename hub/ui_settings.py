@@ -307,6 +307,9 @@ class SettingsMixin:
         act_row("store", "AL RECONOCER TU ARCHIVO: " + {"ask": "PREGUNTAR", "copy": "COPIAR a tu biblioteca", "move": "MOVER a tu biblioteca", "link": "SOLO ENLAZAR"}[
             self.cfg.get("esde_store", "ask") if self.cfg.get("esde_store", "ask") in ("ask", "copy", "move", "link") else "ask"], self.toggle_store_mode,
                 desc="Si lo guarda en tu carpeta de ROMs; el juego siempre recibe un enlace dentro de su carpeta")
+        act_row("remotes", "BIBLIOTECAS REMOTAS: " + self._remote_txt(),
+                lambda: self.remote_cancel() if getattr(self, "_rdl", None) and self._rdl.get("busy") else self.remotes_menu(),
+                desc="WebDAV, Samba, SFTP, FTP o cualquier remoto de rclone con carpetas por sistema (como ES-DE). Durante una descarga: tocar = cancelar")
         section("Descargas")
         num_row("max_active", "Descargas simultáneas", 1, 5)
         num_row("connections", "Conexiones por descarga", 1, 8, desc="Más conexiones suele ir más rápido; algunos servidores lo limitan")

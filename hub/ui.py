@@ -24,6 +24,7 @@ from . import a11y as a11ymod
 from . import directplay
 from . import channel as chan
 from . import qamlink
+from . import remote
 from . import selfupdate, gamedict, buildplan, sfx, auth, build, catalog, config, downloads, gamepad, ghapi, github, install, dlwatch, esde, formats, library, port, roms, hubbrowser, received, gamecfg, cmdjob, artgen, steamsetup, sgdb, artsrc, recompsite, gsfocus, catalogservice, catalogjobs, quiversrc, trash, perf, covers, buildlog, doctor, ghcookies, ghstats, platformart, icons, launchlog, osver, steamlib, power, recipes, peek, discid, fonts, launchwatch, themes_fam, ownwine, lcheck, nethttp, history, diag, haptic, logview
 
 BG = (10, 10, 12)            # estilo Apple oscuro: negro casi puro, capas de gris «sistema»
@@ -248,7 +249,7 @@ class Wd:
 GH_SEARCH = "https://github.com/search?type=repositories"
 
 
-from . import ui_detail, ui_downloads, ui_explore, ui_files, ui_fx, ui_home, ui_homes, ui_modal, ui_recipes, ui_settings  # noqa: E402
+from . import ui_detail, ui_downloads, ui_explore, ui_files, ui_fx, ui_home, ui_homes, ui_modal, ui_recipes, ui_remote, ui_settings  # noqa: E402
 
 
 def _adopt(cls):
@@ -266,7 +267,7 @@ def _adopt(cls):
 
 
 _PARTS = tuple(_adopt(m) for m in (ui_fx.FxMixin, ui_home.HomeMixin, ui_homes.HomeLayoutsMixin, ui_explore.ExploreMixin, ui_downloads.DownloadsMixin, ui_settings.SettingsMixin,
-                                   ui_detail.DetailMixin, ui_modal.ModalMixin, ui_files.FilesMixin, ui_recipes.RecipesMixin))
+                                   ui_detail.DetailMixin, ui_modal.ModalMixin, ui_files.FilesMixin, ui_recipes.RecipesMixin, ui_remote.RemoteMixin))
 
 
 class UI(*_PARTS):

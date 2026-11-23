@@ -1516,3 +1516,9 @@ Medido en 17 pantallas × 6 temas × calidad alta/rendimiento, a 1280×800 y 192
 - **Ahora:** entran en la misma cola que evdev. La guía de SDL también cuenta como botón Steam.
 - **Diagnóstico:** en el Modo Juego, cada toque que pulsa algo queda en `hub.log`, con su tipo, cuánto duró, dónde fue y qué pulsó (`[toque] dedo 0 ms en (960, 540) sobre «…»`).
 - Basado en el análisis y el parche del chat de QAM Rail.
+
+## v3.22 · Bibliotecas remotas (WebDAV, Samba, SFTP, FTP, rclone)
+- **Dónde:** Ajustes › Archivos › «Bibliotecas remotas».
+- **Qué hace:** añade un servidor con tus juegos en carpetas por sistema, como ES-DE (`roms/psx`, `roms/ps2`…), lo explora por sistema y baja el juego a tu carpeta de ROMs. Con el tipo «rclone», también sirve cualquier remoto que ya tengas configurado (Google Drive, OneDrive…). Y vale una carpeta montada (USB, NFS).
+- **Cómo funciona:** el transporte lo hace rclone, que tiene que estar instalado (`brew install rclone`). La contraseña se guarda oscurecida y con permisos 600, aparte de la biblioteca. Nunca pisa un juego que ya tienes, y lo que queda a medias se renombra a `.incompleto`. Una descarga a la vez; su avance se ve en la fila de Ajustes, y tocarla durante una descarga la cancela.
+- **Protocolo y siguientes pasos:** el servicio de descargas separado (las descargas seguirán aunque se cierre el Hub) y la tarjeta del QAM están en el proyecto: `claude/forgeinator-servicio-protocolo.md`.

@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: System packages
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-dejavu-core fonts-noto-core p7zip-full
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-dejavu-core fonts-noto-core p7zip-full rclone
       - name: Python packages
         run: python -m pip install --upgrade pip && python -m pip install pygame-ce pytest
       - name: Syntax
