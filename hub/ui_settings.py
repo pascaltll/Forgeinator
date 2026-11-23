@@ -313,7 +313,7 @@ class SettingsMixin:
         act_row("retnav", "VOLVER A HUB AL DETECTAR UNA DESCARGA: " + ("SÍ" if self.cfg.get("return_to_hub", True) else "NO"), self.toggle_return,
                 desc="Cuando bajas algo en el navegador, Hub vuelve delante")
         section("Carátulas")
-        act_row("covers", "DESCARGAR CARÁTULAS FALTANTES: " + self._covers_txt(), self.covers_batch, desc="Una sola vez, desde SteamGridDB")
+        act_row("covers", "DESCARGAR CARÁTULAS FALTANTES: " + self._covers_txt(), self.covers_batch, desc="SteamGridDB y libretro (consolas), 4 a la vez; lo que no existe no se repite")
         act_row("k_sgdb", "CLAVE DE STEAMGRIDDB: " + ("guardada" if self.memo("k_sgdb", sgdb.key) else "falta"), lambda: self.osk(
             "Clave de SteamGridDB (steamgriddb.com → Preferences → API)", lambda t: (sgdb.save_key(t), self.toast("Clave guardada")) if t.strip() else None, ""),
                 desc="Necesaria para buscar carátulas y arte")

@@ -1503,3 +1503,10 @@ Medido en 17 pantallas × 6 temas × calidad alta/rendimiento, a 1280×800 y 192
 ## v3.19 · Un mismo zip de actualización sirve para todas las copias
 - **Qué pasaba:** el primero que aplicaba `recomp-hub-update-vX.zip` lo movía a `~/Games/actualizaciones/aplicadas/`, y las demás copias dejaban de verlo. Así, si la instalación antigua se actualizaba primero, la copia dev se quedaba sin la versión nueva.
 - **Ahora:** las copias con canal (dev) también buscan en `aplicadas/` y nunca mueven el zip. Solo lo aparta la instalación antigua.
+
+## v3.20 · Carátulas más rápidas
+- **4 descargas a la vez.** Antes iban de una en una, con 0,25 s de pausa entre cada juego.
+- **Menos consultas por juego:** 2 candidatos en lugar de 3, y solo portada vertical o banner. Antes, un juego que no está en SteamGridDB podía costar hasta 18 consultas.
+- **No se repiten los que no existen:** un juego sin carátula en ninguna fuente queda apuntado en `covers/.sin-resultado.json` y no se vuelve a pedir en 14 días. Antes, cada vez que pulsabas el botón se volvían a buscar todos esos. Si solo quedan esos, el botón los reintenta.
+- **libretro como segunda fuente, sin clave** (la que usa RetroArch): para juegos de consola, el índice de cada sistema se baja una vez y se busca en local. También sirve si no tienes clave de SteamGridDB o si Cloudflare la bloquea.
+- **En Ajustes** se ve el avance («descargando 120 de 400…») y cuántas faltan porque no existen en ninguna fuente. `hub.log` anota el resultado y el tiempo (`[carátulas]`).

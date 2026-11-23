@@ -3813,28 +3813,39 @@ class UI(*_PARTS):
         # se pinta en cada fotograma de Ajustes: se calcula como mucho cada 5 s (antes ~9700 stat por fotograma = scroll a 8 fps)
         now, c = time.time(), getattr(self, "_cvt", None)
         if not c or now - c[0] > 5 or c[2] != len(self.entries):
-            c = self._cvt = (now, len(covers.missing(self.entries)), len(self.entries))
-        return f"faltan {c[1]} de {c[2]}"
+            todo = covers.missing(self.entries)
+            c = self._cvt = (now, len(todo), len(self.entries), covers.recent_misses(todo))
+        st = getattr(self, "_cvb", None)
+        if st and st.get("busy"):
+            return f"descargando {st['i']} de {st['n']}…"
+        sin = c[3]
+        return f"faltan {c[1]} de {c[2]}" + (f" ({sin} sin carátula en ninguna fuente: se reintentan cada {covers.RETRY_DAYS} días)" if sin else "")
 
     def covers_batch(self):
-        if not sgdb.key():
-            self.toast("Falta la clave de SteamGridDB (arriba, en Imágenes)")
-            return
+        """v3.20: SteamGridDB (con clave) y libretro (sin clave, juegos de consola), 4 a la vez; los que no existen en ninguna fuente
+        no se vuelven a pedir hasta pasados covers.RETRY_DAYS días. Si solo quedan esos, este botón los reintenta."""
         if getattr(self, "_cvb", None) and self._cvb.get("busy"):
             return
-        st = self._cvb = {"busy": True, "i": 0, "n": len(covers.missing(self.entries))}
+        nuevos = covers.missing(self.entries, include_misses=False)
+        retry = not nuevos
+        st = self._cvb = {"busy": True, "i": 0, "n": len(covers.missing(self.entries)) if retry else len(nuevos)}
+        if not sgdb.key():
+            self.toast("Sin clave de SteamGridDB: solo libretro (juegos de consola). La clave se pega en Ajustes › Imágenes")
 
         def prog(i, n, name):
             st["i"], st["n"] = i, n
 
         def job():
-            r = covers.batch(self.entries, prog)
+            t0 = time.time()
+            r = covers.batch(self.entries, prog, retry_misses=retry)
             st["busy"] = False
             self._cvt = None
             self._cov = {}
+            print(f"[carátulas] {r['ok']} nuevas, {r['sin']} sin resultado, {r['error']} con error, {r['omitidos']} omitidas "
+                  f"(sin resultado hace poco) en {time.time() - t0:.0f} s", file=sys.stderr, flush=True)
             self.toast(f"Carátulas: {r['ok']} nuevas, {r['sin']} sin resultado, {r['error']} con error")
         threading.Thread(target=job, daemon=True).start()
-        self.toast("Descargando carátulas en segundo plano…")
+        self.toast("Reintentando las que no se encontraron…" if retry else "Descargando carátulas en segundo plano…")
 
     def show_buildlog(self):
         s = buildlog.stats()

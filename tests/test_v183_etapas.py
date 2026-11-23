@@ -25,7 +25,7 @@ def test_covers_batch_descarga_solo_lo_que_falta(tmp_path, monkeypatch):
               images=lambda k, i, n: [{"url": "http://x/a.jpg"}],
               fetch=lambda u, d: (calls.append(d.name), d.parent.mkdir(parents=True, exist_ok=True), d.write_bytes(b"y")))
     r = covers.batch(es, pause=0, **kw)
-    assert r == {"ok": 2, "sin": 0, "error": 0, "total": 2}
+    assert {k: r[k] for k in ("ok", "sin", "error", "total")} == {"ok": 2, "sin": 0, "error": 0, "total": 2}   # v3.20: más campos
     assert sorted(calls) == ["g1.jpg", "g2.jpg"]
     assert covers.batch(es, pause=0, **kw)["total"] == 0          # idempotente
 
@@ -35,7 +35,7 @@ def test_covers_sin_resultados_y_errores(tmp_path, monkeypatch):
     r = covers.batch(_entries(1), pause=0, search=lambda t: [], images=None, fetch=None)
     assert r["sin"] == 1
     def boom(t): raise OSError("red")
-    assert covers.batch(_entries(1), pause=0, search=boom)["error"] == 1
+    assert covers.batch(_entries(1), pause=0, search=boom, retry_misses=True)["error"] == 1   # v3.20: el de antes quedó apuntado como «sin resultado»
 
 
 def test_buildlog_registra_y_resume(tmp_path, monkeypatch):
