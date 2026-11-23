@@ -310,6 +310,8 @@ class SettingsMixin:
         act_row("remotes", "BIBLIOTECAS REMOTAS: " + self._remote_txt(),
                 lambda: self.remote_cancel() if getattr(self, "_rdl", None) and self._rdl.get("busy") else self.remotes_menu(),
                 desc="WebDAV, Samba, SFTP, FTP o cualquier remoto de rclone con carpetas por sistema (como ES-DE). Durante una descarga: tocar = cancelar")
+        act_row("plugins", "COMPLEMENTOS: " + self._plugins_txt(), self.plugins_menu,
+                desc="Conectores extra instalables desde un zip (servidores con API propia). Activar, desactivar, quitar")
         section("Descargas")
         num_row("max_active", "Descargas simultáneas", 1, 5)
         num_row("connections", "Conexiones por descarga", 1, 8, desc="Más conexiones suele ir más rápido; algunos servidores lo limitan")

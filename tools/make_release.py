@@ -14,6 +14,7 @@ import argparse
 import base64
 import hashlib
 import json
+import sys
 import zipfile
 from pathlib import Path
 
@@ -193,6 +194,10 @@ def main():
     made = [inst, z, app]
     if a.dev:
         made.append(build_app_zip(out, v, "dev"))
+    sys.path.insert(0, str(ROOT))                    # v3.25: los complementos de ejemplo (plugins/<id>/) salen como zips aparte
+    from hub import plugins as _pl
+    for d in sorted((ROOT / "plugins").glob("*/forgeinator-plugin.json")):
+        made.append(_pl.pack(d.parent, out))
     (out / "SHA256SUMS").write_text("".join(f"{sha256(p)}  {p.name}\n" for p in made), encoding="utf-8")
     print(f"{inst} ({n} archivos) · " + " · ".join(str(p) for p in made[1:]) + f" · {out / 'SHA256SUMS'}")
 

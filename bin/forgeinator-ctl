@@ -3,7 +3,12 @@
   forgeinator-ctl --qam-status                 una línea JSON: versión, canal de esta copia, canal activo, si está abierta, avisos
   forgeinator-ctl --canal [estado|estable|dev] ver o elegir el canal activo (el que gestiona los atajos de Steam y la apariencia)
   forgeinator-ctl --where                      carpetas de esta copia (programa, biblioteca, ajustes, registros)
-  forgeinator-ctl --resolve-active             carpeta de la copia que debe abrirse (aplica la red de seguridad de dev)"""
+  forgeinator-ctl --resolve-active             carpeta de la copia que debe abrirse (aplica la red de seguridad de dev)
+  forgeinator-ctl --plugins [lista]            complementos instalados (JSON)
+  forgeinator-ctl --plugins ver ZIP            lee el manifiesto de un zip sin instalarlo (nombre, versión, permisos)
+  forgeinator-ctl --plugins instalar ZIP       instala o actualiza (la versión anterior queda en plugins/.anteriores)
+  forgeinator-ctl --plugins activar|desactivar ID
+  forgeinator-ctl --plugins quitar ID          no borra: lo mueve a plugins/.papelera"""
 import json
 import os
 import subprocess
@@ -47,6 +52,33 @@ def status() -> dict:
             "installed": {c: ch.installed(c) for c in ch.CHANNELS}, "notices": notices[:3]}
 
 
+def plugins_cmd(a):
+    from hub import plugins
+    sub = (a[0] if a else "lista").lower()
+    try:
+        if sub in ("lista", "list"):
+            out = [{k: v for k, v in p.items() if k != "run"} for p in plugins.installed().values()]
+        elif sub in ("ver", "inspect") and len(a) > 1:
+            out = {k: v for k, v in plugins.inspect(a[1]).items() if k != "run"}
+        elif sub in ("instalar", "install") and len(a) > 1:
+            m = plugins.inspect(a[1])
+            print(f"{m['action'].capitalize()}: {m['name']} {m['version']} · permisos: {', '.join(m['permissions']) or 'ninguno'}", file=sys.stderr)
+            out = {k: v for k, v in plugins.install(a[1]).items() if k != "run"}
+        elif sub in ("activar", "enable", "desactivar", "disable") and len(a) > 1:
+            plugins.set_enabled(a[1], sub in ("activar", "enable"))
+            out = True
+        elif sub in ("quitar", "remove") and len(a) > 1:
+            out = {"movido_a": str(plugins.remove(a[1]))}
+        else:
+            print(__doc__, file=sys.stderr)
+            return 2
+    except (plugins.PluginError, OSError) as ex:
+        print(f"Error: {ex}", file=sys.stderr)
+        return 1
+    print(json.dumps(out, ensure_ascii=False, indent=1))
+    return 0
+
+
 def main(argv):
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__)
@@ -63,6 +95,8 @@ def main(argv):
         act = ch.active()
         print(str(ch.copy_dir(act)) if act and ch.installed(act) else str(ROOT))
         return 0
+    if cmd == "--plugins":
+        return plugins_cmd(argv[1:])
     if cmd in ("--canal", "--channel"):
         want = NAMES.get((argv[1] if len(argv) > 1 else "estado").lower())
         if want is None:

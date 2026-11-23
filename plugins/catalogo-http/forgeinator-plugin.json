@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "id": "catalogo-http",
+  "name": "Catálogo HTTP v1",
+  "version": "1.0.0",
+  "type": "connector",
+  "protocol": 1,
+  "run": ["python3", "main.py"],
+  "description": "Conecta con cualquier servidor que hable el protocolo de catálogo HTTP v1 de Forgeinator (docs/PROTOCOL.md): lista por sistema, archivos con sha256 y descarga.",
+  "author": "Forgeinator",
+  "homepage": "https://github.com/pascaltll/Forgeinator/blob/main/docs/PLUGINS.md",
+  "permissions": ["network"],
+  "fields": [
+    {"key": "url", "label": "Dirección base (p. ej. https://nas.local:8080/forgeinator/v1)", "default": "https://", "required": true},
+    {"key": "token", "label": "Token del servidor (vacío si no pide)", "secret": true}
+  ]
+}

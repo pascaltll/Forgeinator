@@ -21,6 +21,9 @@ Forgeinator **never downloads games**. Every port needs your own legally obtaine
 - **Direct start**: games open straight away, without the launcher's update screen, also from their Steam shortcuts.
 - **Steam**: shortcuts with artwork (SteamGridDB) so each game shows with its own name in Big Picture.
 - **Your game files**: recognized by hash or serial from a file picker or a watched downloads folder, linked into an ES-DE style library.
+- **Remote libraries**: WebDAV, Samba, SFTP, FTP, any rclone remote or a mounted folder, browsed by system (ES-DE layout) and downloaded by a background service (`forgeinatord`) that keeps going after you close the Hub.
+- **Plugins**: extra connectors installed from a zip (Settings › Files › Plugins), for servers with their own API. Includes "Catálogo HTTP v1". How to write one: [docs/PLUGINS.md](docs/PLUGINS.md); connections and APIs: [docs/PROTOCOL.md](docs/PROTOCOL.md).
+- **Error reports and suggestions**: preview with tokens, cookies and your user name redacted; save as a zip or open a prefilled GitHub issue.
 - **Themes**: 15 classic themes with 59 palettes, plus 8 experimental "Studio" identities. Accessibility options: reduced motion, high contrast, large text; three quality levels.
 
 ## Requirements
@@ -62,7 +65,7 @@ Both share the library (`~/.local/share/forgeinator`: games, downloads, linked R
 
 ## Your data and privacy
 
-Your library lives in `~/.local/share/forgeinator`, your settings in `~/.config/forgeinator/<channel>` and logs in `~/.local/state/forgeinator/<channel>` (on an old install, everything is in `data/`). Your GitHub token is stored in `~/.config/forgeinator/credentials.json` with 600 permissions, outside the program. None of it is part of this repository and none of it is sent anywhere. Forgeinator only talks to GitHub and the services you configure (SteamGridDB, ScreenScraper, your own catalog server).
+Your library lives in `~/.local/share/forgeinator`, your settings in `~/.config/forgeinator/<channel>` and logs in `~/.local/state/forgeinator/<channel>` (on an old install, everything is in `data/`). Your GitHub token is stored in `~/.config/forgeinator/credentials.json` with 600 permissions, outside the program. None of it is part of this repository and none of it is sent anywhere. Forgeinator only talks to GitHub and the services you configure (SteamGridDB, ScreenScraper, your remote libraries and the servers your plugins connect to).
 
 ## Development
 
@@ -73,17 +76,17 @@ python3 -m pytest tests -q          # ~1400 tests, headless (SDL dummy driver)
 python3 main.py                     # run from the source tree
 ```
 
-Layout: `hub/` (application), `bin/` (launch, update, doctor and test scripts), `catalog/` (base catalog and ES-DE systems), `browser/` (optional embedded browser), `assets/` (icons and console logos), `tests/`.
+Layout: `hub/` (application), `bin/` (launch, update, doctor and test scripts; `forgeinatord` is the background service, `forgeinator-ctl` the headless control), `plugins/` (example plugins), `docs/` (protocols and plugin guide), `catalog/` (base catalog and ES-DE systems), `browser/` (optional embedded browser), `assets/` (icons and console logos), `tests/`.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Version history: [CHANGELOG.md](CHANGELOG.md) (in Spanish).
 
 ## Roadmap
 
-1. Public repository (this step).
-2. Installable app: program and user data separated, install from the QAM, updates from GitHub releases.
-3. Error reports with secrets redacted, one tap to open a prefilled GitHub issue.
+1. ~~Public repository.~~ Done (3.12).
+2. ~~Installable app: program and user data separated, stable and dev channels, install from the QAM, updates from GitHub releases.~~ Done (3.15–3.19).
+3. ~~Error reports with secrets redacted, one tap to open a prefilled GitHub issue.~~ Done (3.24).
 4. **Forgeinator Link**: pair your phone through a QR code on your local network to send API keys, cookies and large files (ISOs) into your library.
-5. Remote libraries (WebDAV, SMB, SFTP, cloud drives) with an ES-DE folder layout, and a documented protocol for catalog servers.
+5. ~~Remote libraries with an ES-DE folder layout, a background download service, plugins and documented protocols.~~ Done (3.22–3.25); next: the QAM "Downloads" card.
 
 ## License
 

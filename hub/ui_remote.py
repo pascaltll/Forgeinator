@@ -27,7 +27,7 @@ class RemoteMixin:
             eta = f" · faltan {int(d['eta'])} s" if d.get("eta") else ""
             return f"bajando «{d['name']}» {pct}{eta}" + (f" (+{len(act) - 1 + cola} en cola)" if len(act) - 1 + cola else "")
         n = len(self.memo("remotes", remote.sources, 5.0))
-        if not remote.rclone_bin():
+        if not remote.rclone_bin() and not self.memo("plug_conn", plugins.connectors, 5.0):
             return "falta rclone"
         return f"{n} configurada{'s' if n != 1 else ''}" if n else "ninguna"
 
@@ -36,12 +36,12 @@ class RemoteMixin:
         self.focus = None
 
     def remotes_menu(self):
-        if not remote.rclone_bin():
+        if not remote.rclone_bin() and not plugins.connectors() and not remote.sources():
             self._choice("Falta rclone", "Las bibliotecas remotas usan rclone (un solo programa, libre). En Bazzite: «brew install rclone» "
                          "o «rpm-ostree install rclone». También vale dejar el ejecutable de rclone.org en ~/.local/bin.",
                          [("ENTENDIDO", lambda: None)])
             return
-        opts = [(f"{s['name'].upper()}  ·  {remote.KINDS[s['kind']][0].split(' (')[0]}", lambda s=s: self.remote_open(s)) for s in remote.sources()]
+        opts = [(f"{s['name'].upper()}  ·  {remote.kind_label(s)}", lambda s=s: self.remote_open(s)) for s in remote.sources()]
         ds = self._svc_list()
         if ds:
             vivas = sum(1 for d in ds if d["state"] in ("queued", "active", "paused"))
@@ -53,8 +53,28 @@ class RemoteMixin:
 
     # ---------------------------------------------------------------- añadir
     def remote_add(self):
-        opts = [(remote.KINDS[k][0].upper(), lambda k=k: self._remote_ask(k, {}, 0)) for k in remote.KINDS]
-        self._choice("¿Qué tipo de servidor?", "", opts + [("CANCELAR", lambda: None)])
+        rc = bool(remote.rclone_bin())
+        opts = [(remote.KINDS[k][0].upper(), lambda k=k: self._remote_ask(k, {}, 0)) for k in remote.KINDS if k != "plugin" and (rc or k == "local")]
+        opts += [(f"COMPLEMENTO · {p['name'].upper()}", lambda p=p: self._plugin_ask(p, {}, 0)) for p in plugins.connectors()]
+        self._choice("¿Qué tipo de servidor?", "" if rc else "Sin rclone solo salen las carpetas locales y los complementos instalados.",
+                     opts + [("COMPLEMENTOS…", self.plugins_menu), ("CANCELAR", lambda: None)])
+
+    def _plugin_ask(self, p, vals, i):
+        """Pide los campos que declara el manifiesto del complemento y guarda la fuente (los secretos van aparte, 600)."""
+        fs = p.get("fields") or []
+        if i < len(fs):
+            f = fs[i]
+            hint = "Se guarda aparte, solo para ti" if f.get("secret") else ""
+
+            def got(t, f=f):
+                if f.get("required") and not t.strip():
+                    self.toast(f"«{f['label']}» es obligatorio")
+                    return self._plugin_ask(p, vals, i)
+                self._plugin_ask(p, dict(vals, **{f["key"]: t.strip()}), i + 1)
+            self.osk(f["label"], got, vals.get(f["key"], f.get("default", "")), hint=hint)
+            return
+        self.osk("Nombre para reconocerla", lambda t: self._remote_save("plugin", dict(vals, plugin=p["id"], _root=""), t.strip() or p["name"]),
+                 p["name"][:30])
 
     _ASK = {"url": ("Dirección (p. ej. https://nas.local/remote.php/dav/files/carlos)", "https://"), "host": ("Servidor (nombre o IP)", ""),
             "user": ("Usuario", ""), "pass": ("Contraseña (se guarda cifrada, solo para ti)", ""), "share": ("Carpeta compartida (p. ej. juegos)", ""),

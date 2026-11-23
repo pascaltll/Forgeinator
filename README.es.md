@@ -21,6 +21,9 @@ Forgeinator **nunca descarga juegos**. Cada port necesita tu propia copia legal 
 - **Arranque directo**: los juegos se abren al momento, sin la pantalla de actualización del launcher, también desde sus accesos de Steam.
 - **Steam**: accesos con arte (SteamGridDB) para que cada juego salga con su nombre en Big Picture.
 - **Tus archivos del juego**: se reconocen por hash o serial desde un selector o vigilando tu carpeta de descargas, y se enlazan en una biblioteca con estructura ES-DE.
+- **Bibliotecas remotas**: WebDAV, Samba, SFTP, FTP, cualquier remoto de rclone o una carpeta montada, por sistemas (estructura ES-DE). Las descargas las hace un servicio en segundo plano (`forgeinatord`) que sigue aunque cierres el Hub.
+- **Complementos**: conectores extra que se instalan desde un zip (Ajustes › Archivos › Complementos), para servidores con API propia. Incluye «Catálogo HTTP v1». Cómo escribir uno: [docs/PLUGINS.md](docs/PLUGINS.md); conexiones y API: [docs/PROTOCOL.md](docs/PROTOCOL.md).
+- **Informes de error y sugerencias**: vista previa con tokens, cookies y tu usuario tapados; se guarda como zip o se abre como issue de GitHub ya rellenado.
 - **Temas**: 15 temas clásicos con 59 paletas y 8 identidades experimentales del «Estudio». Accesibilidad: movimiento reducido, alto contraste, texto grande; tres niveles de calidad.
 
 ## Requisitos
@@ -62,7 +65,7 @@ Las dos comparten la biblioteca (`~/.local/share/forgeinator`: juegos, descargas
 
 ## Tus datos y tu privacidad
 
-Tu biblioteca vive en `~/.local/share/forgeinator`, tus ajustes en `~/.config/forgeinator/<canal>` y los registros en `~/.local/state/forgeinator/<canal>` (en una instalación antigua, todo en `data/`). El token de GitHub se guarda en `~/.config/forgeinator/credentials.json` con permisos 600, fuera del programa. Nada de eso forma parte de este repositorio ni se envía a ningún sitio. Forgeinator solo habla con GitHub y con los servicios que configures (SteamGridDB, ScreenScraper, tu propio servidor de catálogo).
+Tu biblioteca vive en `~/.local/share/forgeinator`, tus ajustes en `~/.config/forgeinator/<canal>` y los registros en `~/.local/state/forgeinator/<canal>` (en una instalación antigua, todo en `data/`). El token de GitHub se guarda en `~/.config/forgeinator/credentials.json` con permisos 600, fuera del programa. Nada de eso forma parte de este repositorio ni se envía a ningún sitio. Forgeinator solo habla con GitHub y con los servicios que configures (SteamGridDB, ScreenScraper, tus bibliotecas remotas y los servidores a los que se conecten tus complementos).
 
 ## Desarrollo
 
@@ -73,17 +76,17 @@ python3 -m pytest tests -q          # ~1400 pruebas, sin pantalla (driver SDL du
 python3 main.py                     # ejecutar desde el código
 ```
 
-Estructura: `hub/` (la aplicación), `bin/` (arranque, actualización, doctor y pruebas), `catalog/` (catálogo base y sistemas de ES-DE), `browser/` (navegador integrado opcional), `assets/` (iconos y logos de consola), `tests/`.
+Estructura: `hub/` (la aplicación), `bin/` (arranque, actualización, doctor y pruebas; `forgeinatord` es el servicio en segundo plano y `forgeinator-ctl` el control sin interfaz), `plugins/` (complementos de ejemplo), `docs/` (protocolos y guía de complementos), `catalog/` (catálogo base y sistemas de ES-DE), `browser/` (navegador integrado opcional), `assets/` (iconos y logos de consola), `tests/`.
 
 Mira [CONTRIBUTING.md](CONTRIBUTING.md). Historial de versiones: [CHANGELOG.md](CHANGELOG.md).
 
 ## Hoja de ruta
 
-1. Repositorio público (este paso).
-2. App instalable: programa y datos separados, instalación desde el QAM, actualizaciones desde las releases de GitHub.
-3. Informes de error con los secretos tapados y un toque para abrir un issue de GitHub ya rellenado.
+1. ~~Repositorio público.~~ Hecho (3.12).
+2. ~~App instalable: programa y datos separados, canales estable y dev, instalación desde el QAM, actualizaciones desde las releases de GitHub.~~ Hecho (3.15–3.19).
+3. ~~Informes de error con los secretos tapados y un toque para abrir un issue de GitHub ya rellenado.~~ Hecho (3.24).
 4. **Forgeinator Link**: vincula tu teléfono con un QR en tu red local para enviar claves, cookies y archivos grandes (ISO) a tu biblioteca.
-5. Bibliotecas remotas (WebDAV, SMB, SFTP, nubes) con estructura ES-DE y un protocolo documentado para servidores de catálogo.
+5. ~~Bibliotecas remotas con estructura ES-DE, servicio de descargas en segundo plano, complementos y protocolos documentados.~~ Hecho (3.22–3.25); falta la tarjeta «Descargas» del QAM.
 
 ## Licencia
 

@@ -20,7 +20,7 @@ import time
 import uuid
 from pathlib import Path
 
-from . import config, remote
+from . import config, plugins, remote
 
 V = 1
 IDLE_EXIT = 600.0
@@ -215,6 +215,18 @@ class Service:
         if m == "shutdown":
             self.stop.set()
             return True
+        if m == "plugins.list":                     # v3.25: zona de complementos (ver docs/PLUGINS.md)
+            return [_pub(x) for x in plugins.installed().values()]
+        if m in ("plugins.inspect", "plugins.install"):
+            f = Path(str(p["path"])).expanduser()
+            if f.suffix.lower() != ".zip" or not f.is_file():
+                raise ValueError("«path» debe ser un archivo .zip de este equipo")
+            return _pub(plugins.inspect(f) if m == "plugins.inspect" else plugins.install(f))
+        if m in ("plugins.enable", "plugins.disable"):
+            plugins.set_enabled(p["id"], m == "plugins.enable")
+            return True
+        if m == "plugins.remove":
+            return {"moved_to": str(plugins.remove(p["id"]))}
         raise LookupError(m)
 
     def serve(self, path: Path = None):
@@ -252,6 +264,8 @@ class Service:
                             res = {"v": V, "id": rid, "ok": False, "error": "metodo", "detail": f"método desconocido: {ex}"}
                         except remote.RemoteError as ex:
                             res = {"v": V, "id": rid, "ok": False, "error": "remota", "detail": str(ex)}
+                        except plugins.PluginError as ex:
+                            res = {"v": V, "id": rid, "ok": False, "error": "complemento", "detail": str(ex)}
                         except (ValueError, TypeError) as ex:
                             res = {"v": V, "id": rid, "ok": False, "error": "invalido", "detail": str(ex)}
                         send(res)
@@ -288,7 +302,13 @@ class Service:
 
 
 METHODS = ("ping", "sources.list", "sources.test", "browse", "downloads.add", "downloads.list", "downloads.pause", "downloads.resume",
-           "downloads.cancel", "downloads.clear", "events.subscribe", "shutdown")
+           "downloads.cancel", "downloads.clear", "events.subscribe", "shutdown",
+           "plugins.list", "plugins.inspect", "plugins.install", "plugins.enable", "plugins.disable", "plugins.remove")
+
+
+def _pub(m: dict) -> dict:
+    """Lo que se cuenta de un complemento a los clientes (sin la orden interna de arranque)."""
+    return {k: v for k, v in m.items() if k not in ("run",)}
 
 
 # ---------------------------------------------------------------- cliente

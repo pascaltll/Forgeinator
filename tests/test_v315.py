@@ -285,7 +285,8 @@ def test_zip_de_app_del_qam(rel, c, top):
 
 def test_sumas_sha256(rel):
     sums = dict(reversed(ln.split("  ")) for ln in (rel / "SHA256SUMS").read_text().splitlines())
-    assert set(sums) == {"forgeinator-9.9.zip", "forgeinator-dev-9.9.zip", "install-hub-v9.9.sh", "recomp-hub-update-v9.9.zip"}
+    assert set(sums) == {"forgeinator-9.9.zip", "forgeinator-dev-9.9.zip", "install-hub-v9.9.sh", "recomp-hub-update-v9.9.zip",
+                         "forgeinator-plugin-catalogo-http-1.0.0.zip"}   # v3.25: complemento de ejemplo
     for n, h in sums.items():
         assert hashlib.sha256((rel / n).read_bytes()).hexdigest() == h
 

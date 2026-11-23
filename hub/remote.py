@@ -25,6 +25,7 @@ KINDS = {   # tipo → (nombre visible, backend de rclone, campos que se piden)
     "ftp": ("FTP", "ftp", ("host", "user", "pass", "port")),
     "rclone": ("Remoto ya configurado en rclone", None, ("remote",)),
     "local": ("Carpeta de este equipo o montada (USB, NFS…)", "local", ()),
+    "plugin": ("Complemento", None, ()),     # v3.25: conector instalado como complemento (hub/plugins.py); sus campos los dice su manifiesto
 }
 SECRET = ("pass",)
 TIMEOUT_LIST = 60
@@ -117,17 +118,40 @@ def get(sid: str) -> dict:
     return dict(s, id=sid)
 
 
+def _plugin_secret_keys(fields: dict) -> set:
+    from . import plugins
+    try:
+        return {f["key"] for f in plugins.get(fields.get("plugin", "")).get("fields", []) if f.get("secret")}
+    except plugins.PluginError:
+        return set()
+
+
 def add(kind: str, name: str, fields: dict, root: str = "roms") -> dict:
-    """Guarda una fuente. La contraseña se oscurece con rclone y va aparte (600); en remotes.json nunca hay secretos."""
+    """Guarda una fuente. La contraseña se oscurece con rclone y va aparte (600); en remotes.json nunca hay secretos.
+    Fuentes de complementos: los campos secretos que declara su manifiesto van al mismo archivo aparte (600), tal cual."""
     if kind not in KINDS:
         raise RemoteError(f"Tipo desconocido: {kind}")
+    if kind == "plugin":
+        if fields.get("plugin") not in _plugin_ids():
+            raise RemoteError("Ese complemento no está instalado")
+        skeys = _plugin_secret_keys(fields)
+        return _add(kind, name, fields, root, skeys, plain=True)
+    return _add(kind, name, fields, root, set(SECRET), plain=False)
+
+
+def _plugin_ids():
+    from . import plugins
+    return set(plugins.installed())
+
+
+def _add(kind, name, fields, root, skeys, plain):
     sid = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:24] or "remota"
     st = _load(_store())
     if sid in st:
         sid += "-" + uuid.uuid4().hex[:4]
-    pub = {k: str(v) for k, v in fields.items() if k not in SECRET and v not in (None, "")}
+    pub = {k: str(v) for k, v in fields.items() if k not in skeys and v not in (None, "")}
     st[sid] = {"name": name.strip() or KINDS[kind][0], "kind": kind, "fields": pub, "root": root.strip("/"), "added": time.time()}
-    sec = {k: obscure(v) for k, v in fields.items() if k in SECRET and v}
+    sec = {k: (str(v) if plain else obscure(v)) for k, v in fields.items() if k in skeys and v}
     if sec:
         allsec = _load(_secrets())
         allsec[sid] = sec
@@ -170,6 +194,46 @@ def remote_spec(src: dict, rel: str = "") -> str:
     return f":{KINDS[kind][1]}," + ",".join(opts) + ":" + path
 
 
+def kind_label(src: dict) -> str:
+    if src.get("kind") == "plugin":
+        from . import plugins
+        pid = (src.get("fields") or {}).get("plugin", "")
+        p = plugins.installed().get(pid)
+        return (p or {}).get("name") or f"complemento {pid}"
+    return KINDS.get(src.get("kind"), ("?",))[0].split(" (")[0]
+
+
+def plugin_config(src: dict) -> dict:
+    """Lo que recibe el complemento: los campos de SU fuente (también los secretos) y la carpeta raíz. Nada más."""
+    cfg = {k: v for k, v in (src.get("fields") or {}).items() if k != "plugin"}
+    cfg.update(_load(_secrets()).get(src.get("id", ""), {}))
+    cfg["root"] = src.get("root", "")
+    return cfg
+
+
+def _psession(src):
+    from . import plugins
+    try:
+        return plugins.session((src.get("fields") or {}).get("plugin", ""))
+    except plugins.PluginError as ex:
+        raise RemoteError(str(ex)) from ex
+
+
+def _pcall(src, method, params, **kw):
+    from . import plugins
+    with _psession(src) as s:
+        try:
+            return s.call(method, dict(params, config=plugin_config(src)), **kw)
+        except plugins.PluginError as ex:
+            raise RemoteError(str(ex)) from ex
+
+
+def _plist(r, keys) -> list:
+    if not isinstance(r, list):
+        raise RemoteError("El complemento devolvió una lista ilegible")
+    return [x for x in r if isinstance(x, dict) and all(k in x for k in keys)]
+
+
 # ---------------------------------------------------------------- explorar
 def lsjson(src: dict, rel: str = "", dirs_only=False) -> list:
     args = ["lsjson", remote_spec(src, rel), "--no-modtime", "--no-mimetype"]
@@ -183,6 +247,14 @@ def lsjson(src: dict, rel: str = "", dirs_only=False) -> list:
 
 def test(src: dict) -> str:
     """Prueba la conexión: lista la carpeta raíz. Devuelve un resumen ('12 sistemas: psx, ps2…')."""
+    if src.get("kind") == "plugin":
+        with _psession(src) as s:
+            if "test" in (getattr(s, "hello", {}) or {}).get("capabilities", []):
+                from . import plugins
+                try:
+                    return str(s.call("test", {"config": plugin_config(src)}))
+                except plugins.PluginError as ex:
+                    raise RemoteError(str(ex)) from ex
     sy = systems(src)
     if not sy:
         return "Conecta, pero no hay carpetas de sistema (se esperaba <carpeta>/psx, ps2… como en ES-DE)"
@@ -191,6 +263,13 @@ def test(src: dict) -> str:
 
 def systems(src: dict) -> list:
     """Carpetas de primer nivel que son sistemas de ES-DE: [{'dir', 'system', 'name'}]."""
+    if src.get("kind") == "plugin":
+        out = []
+        for x in _plist(_pcall(src, "systems", {}), ("dir",)):
+            sy = esde.system_for(str(x.get("system") or x["dir"])) or str(x.get("system") or "")
+            if sy:
+                out.append({"dir": str(x["dir"]), "system": sy, "name": str(x.get("name") or x["dir"])})
+        return sorted(out, key=lambda s: s["system"])
     out = []
     for e in lsjson(src, dirs_only=True):
         sy = esde.system_for(e["Name"])
@@ -201,6 +280,11 @@ def systems(src: dict) -> list:
 
 def games(src: dict, sysdir: str, system: str) -> list:
     """Juegos de un sistema: archivos con extensión que el sistema acepta, y carpetas (juegos de varios archivos, p. ej. .m3u + .cue)."""
+    if src.get("kind") == "plugin":
+        gs = _plist(_pcall(src, "games", {"dir": sysdir, "system": system}), ("path", "name"))
+        out = [{"path": str(g["path"]), "name": Path(str(g["name"])).name, "dir": bool(g.get("dir")),
+                "size": int(g["size"]) if isinstance(g.get("size"), (int, float)) else None} for g in gs if Path(str(g["name"])).name not in ("", ".", "..")]
+        return sorted(out, key=lambda g: g["name"].lower())
     out = []
     for e in lsjson(src, sysdir):
         name = e["Name"]
@@ -227,6 +311,8 @@ def download(src: dict, game: dict, system: str, progress=None, stop=lambda: Fal
     if dest.exists():
         raise RemoteError(f"Ya tienes «{game['name']}» en {dest.parent}")
     dest.parent.mkdir(parents=True, exist_ok=True)
+    if src.get("kind") == "plugin":
+        return _pdownload(src, game, system, dest, progress, stop)
     rb = rclone_bin()
     if not rb:
         _run(["version"])                                   # lanza el error con las instrucciones
@@ -259,6 +345,23 @@ def download(src: dict, game: dict, system: str, progress=None, stop=lambda: Fal
     if p.returncode != 0:
         _clean_partial(dest)
         raise RemoteError(_explain(last_err))
+    return dest
+
+
+def _pdownload(src, game, system, dest, progress, stop) -> Path:
+    """El complemento escribe en «<destino>.parte» (archivo, o carpeta si el juego es una carpeta); al terminar bien se renombra."""
+    part = dest.with_name(dest.name + ".parte")
+    if part.exists():
+        _clean_partial(part)
+    try:
+        _pcall(src, "download", {"game": game, "system": system, "dest": str(part), "is_dir": bool(game.get("dir"))},
+               progress=progress, stop=stop, timeout=300)
+    except RemoteError:
+        _clean_partial(part)
+        raise
+    if not part.exists():
+        raise RemoteError("El complemento dijo que terminó, pero no dejó nada en la carpeta de destino")
+    os.rename(part, dest)
     return dest
 
 
