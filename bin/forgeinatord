@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Forgeinator 3000 · servicio de descargas (sin ventana). Normalmente lo arranca el Hub cuando hace falta; se apaga solo tras 10 min sin trabajo.
+#   forgeinatord            en primer plano (registro en la terminal)
+#   forgeinatord --estado   ¿está en marcha? y su lista de descargas
+D="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+PY="$(command -v python3 || echo /usr/bin/python3)"
+cd "$D" || exit 1
+exec "$PY" -m hub.service "$@"

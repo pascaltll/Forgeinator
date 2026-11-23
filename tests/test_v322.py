@@ -117,6 +117,10 @@ def test_interfaz_anadir_explorar_bajar(dav, lib, monkeypatch):
     ui.lib_loaded = True
     url, _ = dav
 
+    def no_service(*a, **k):
+        raise OSError("sin servicio en esta prueba")
+    monkeypatch.setattr(U.service, "call", no_service)                    # v3.23: sin forgeinatord, el Hub descarga él mismo
+
     def wait(cond, t=20):
         t0 = time.time()
         while not cond() and time.time() - t0 < t:

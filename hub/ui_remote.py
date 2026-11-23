@@ -4,13 +4,28 @@ juegos a tu biblioteca ES-DE. Parte de la clase UI (ver _adopt en hub/ui.py): us
 
 
 class RemoteMixin:
+    def _svc_list(self):
+        """Descargas del servicio (forgeinatord), sin arrancarlo si no está en marcha."""
+        try:
+            return service.call("downloads.list", start=False, timeout=2.0)
+        except (OSError, ValueError):
+            return []
+
     def _remote_txt(self):
         st = getattr(self, "_rdl", None)
-        if st and st.get("busy"):
+        if st and st.get("busy"):                       # descarga en este proceso (sin servicio)
             tot = st.get("total") or 0
             pct = f"{100 * st['done'] / tot:.0f} %" if tot else "…"
             eta = f" · faltan {int(st['eta'])} s" if st.get("eta") else ""
             return f"bajando «{st['name']}» {pct}{eta}"
+        ds = self.memo("svc_dl", self._svc_list, 2.0)
+        act = [d for d in ds if d["state"] == "active"]
+        cola = sum(1 for d in ds if d["state"] == "queued")
+        if act:
+            d = act[0]
+            pct = f"{100 * d['done'] / d['total']:.0f} %" if d.get("total") else "…"
+            eta = f" · faltan {int(d['eta'])} s" if d.get("eta") else ""
+            return f"bajando «{d['name']}» {pct}{eta}" + (f" (+{len(act) - 1 + cola} en cola)" if len(act) - 1 + cola else "")
         n = len(self.memo("remotes", remote.sources, 5.0))
         if not remote.rclone_bin():
             return "falta rclone"
@@ -27,6 +42,10 @@ class RemoteMixin:
                          [("ENTENDIDO", lambda: None)])
             return
         opts = [(f"{s['name'].upper()}  ·  {remote.KINDS[s['kind']][0].split(' (')[0]}", lambda s=s: self.remote_open(s)) for s in remote.sources()]
+        ds = self._svc_list()
+        if ds:
+            vivas = sum(1 for d in ds if d["state"] in ("queued", "active", "paused"))
+            opts.insert(0, (f"DESCARGAS ({vivas} en marcha · {len(ds)} en la lista)", self.remote_downloads))
         opts.append(("+ AÑADIR UNA BIBLIOTECA", self.remote_add))
         opts.append(("CERRAR", lambda: None))
         self._choice("Bibliotecas remotas", "Servidores con tus juegos en carpetas por sistema (roms/psx, roms/ps2…, como ES-DE). "
@@ -93,6 +112,14 @@ class RemoteMixin:
         self.run_bg("Leyendo la lista…", lambda: remote.games(s, x["dir"], x["system"]), done)
 
     def _remote_get(self, s, g, system):
+        """v3.23: la descarga la hace forgeinatord (sigue aunque se cierre el Hub); si el servicio no arranca, la hace el Hub."""
+        try:
+            service.call("downloads.add", {"source": s["id"], "game": g, "system": system})
+            self.memo_clear()
+            self.toast(f"«{g['name']}» en cola. Sigue aunque cierres Forgeinator (Ajustes › Archivos › Bibliotecas remotas › Descargas)")
+            return
+        except (OSError, ValueError) as ex:
+            print(f"[remota] el servicio de descargas no responde ({ex}): la descarga la hace el Hub", file=sys.stderr, flush=True)
         if getattr(self, "_rdl", None) and self._rdl.get("busy"):
             self.toast("Ya hay una descarga remota en marcha")
             return
@@ -115,6 +142,35 @@ class RemoteMixin:
                 st["busy"] = False
         threading.Thread(target=job, daemon=True).start()
         self.toast(f"Bajando «{g['name']}»… (el avance, en Ajustes › Archivos)")
+
+    def remote_downloads(self):
+        ds = self._svc_list()
+        lab = {"queued": "en cola", "active": "bajando", "paused": "en pausa", "done": "hecha", "error": "error", "cancelled": "cancelada"}
+        opts = []
+        for d in ds:
+            pct = f" {100 * d['done'] / d['total']:.0f} %" if d.get("total") and d["state"] == "active" else ""
+            opts.append((f"{d['name']}  ·  {d['system']}  ·  {lab.get(d['state'], d['state'])}{pct}", lambda d=d: self._remote_dl_actions(d)))
+        opts += [("QUITAR LAS TERMINADAS DE LA LISTA", lambda: (service.call("downloads.clear", start=False), self.memo_clear(), self.remote_downloads())),
+                 ("VOLVER", self.remotes_menu)]
+        self._choice("Descargas remotas", "Las hace el servicio de Forgeinator: siguen con el Hub cerrado o con un juego abierto.", opts)
+
+    def _remote_dl_actions(self, d):
+        def act(m):
+            try:
+                service.call(f"downloads.{m}", {"id": d["id"]}, start=False)
+            except (OSError, ValueError) as ex:
+                self.toast(str(ex))
+            self.memo_clear()
+            self.remote_downloads()
+        opts = []
+        if d["state"] in ("queued", "active"):
+            opts.append(("PAUSAR", lambda: act("pause")))
+        if d["state"] in ("paused", "error", "cancelled"):
+            opts.append(("REINTENTAR" if d["state"] != "paused" else "SEGUIR", lambda: act("resume")))
+        if d["state"] in ("queued", "active", "paused"):
+            opts.append(("CANCELAR", lambda: act("cancel")))
+        opts.append(("VOLVER", self.remote_downloads))
+        self._choice(d["name"], (d.get("error") or d.get("dest") or "") + ("\nAl pausar, la descarga empieza de nuevo al seguir." if d["state"] == "active" else ""), opts)
 
     def remote_cancel(self):
         st = getattr(self, "_rdl", None)

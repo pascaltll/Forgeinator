@@ -1522,3 +1522,12 @@ Medido en 17 pantallas × 6 temas × calidad alta/rendimiento, a 1280×800 y 192
 - **Qué hace:** añade un servidor con tus juegos en carpetas por sistema, como ES-DE (`roms/psx`, `roms/ps2`…), lo explora por sistema y baja el juego a tu carpeta de ROMs. Con el tipo «rclone», también sirve cualquier remoto que ya tengas configurado (Google Drive, OneDrive…). Y vale una carpeta montada (USB, NFS).
 - **Cómo funciona:** el transporte lo hace rclone, que tiene que estar instalado (`brew install rclone`). La contraseña se guarda oscurecida y con permisos 600, aparte de la biblioteca. Nunca pisa un juego que ya tienes, y lo que queda a medias se renombra a `.incompleto`. Una descarga a la vez; su avance se ve en la fila de Ajustes, y tocarla durante una descarga la cancela.
 - **Protocolo y siguientes pasos:** el servicio de descargas separado (las descargas seguirán aunque se cierre el Hub) y la tarjeta del QAM están en el proyecto: `claude/forgeinator-servicio-protocolo.md`.
+
+## v3.23 · forgeinatord: las descargas remotas siguen aunque cierres el Hub
+- **Servicio propio:** las descargas de las bibliotecas remotas las hace un servicio sin ventana, `forgeinatord`. Lo arranca el Hub cuando hace falta (con `systemd --user` si está disponible) y se apaga solo tras 10 min sin trabajo. Sigue bajando con el Hub cerrado o con un juego abierto.
+- **Cola:**
+  - persistente: tras un reinicio, la descarga que se cortó vuelve a la cola;
+  - varias a la vez, las que diga Ajustes › Descargas simultáneas;
+  - pausar, seguir, cancelar y reintentar, desde Ajustes › Archivos › Bibliotecas remotas › Descargas.
+- **Socket local** `$XDG_RUNTIME_DIR/forgeinator.sock` (JSON, con eventos de avance): lo podrán usar el QAM y el teléfono. El contrato está en el proyecto: `claude/forgeinator-servicio-protocolo.md`.
+- **`bin/forgeinatord --estado`** muestra si está en marcha y qué está bajando. Si el servicio no arranca, el Hub descarga él mismo, como en v3.22.

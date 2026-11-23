@@ -30,7 +30,9 @@ for sub in ("data", "l", "g", "svc", "home"):
 os.environ.update(HUB_DATA=str(SESSION_TMP / "data"), LAUNCHER_DIR=str(SESSION_TMP / "l"), HUB_GAMES=str(SESSION_TMP / "g"),
                   HUB_CATALOG_DIR=str(SESSION_TMP / "nosvc"), HUB_CATALOG_URL="http://127.0.0.1:1/rpc",
                   HUB_CATALOG_TOKEN_FILE=str(SESSION_TMP / "home" / "token"), HUB_CATALOG_LOG=str(SESSION_TMP / "home" / "service.log"),
-                  SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy", HUB_NO_PAD="1", HUB_NO_FONT_DL="1", HUB_NO_WATCH="1")
+                  SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy", HUB_NO_PAD="1", HUB_NO_FONT_DL="1", HUB_NO_WATCH="1",
+                  FORGEINATOR_SOCK=f"/tmp/fgt-{os.getpid()}.sock", QAM_RAIL_SOCK=f"/tmp/qrt-{os.getpid()}.sock",   # v3.23: nunca los sockets reales
+                  FORGEINATOR_NO_SYSTEMD="1")
 # ── casa falsa: las pruebas no leen ni escriben NADA de tu carpeta personal (ROMs, Descargas, Steam, ~/.config/autostart…) ──
 # Las rutas reales que necesitan las pruebas «live» se calculan aquí, ANTES de cambiar HOME.
 REAL_HOME = Path.home()

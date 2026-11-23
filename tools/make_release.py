@@ -60,7 +60,7 @@ if [ -f "$DEST/CHANNEL" ]; then   # v3.15: copia del QAM (estable o dev): su qam
     fi
   done
 fi
-chmod +x "$DEST/bin/hub" "$DEST/bin/forgeinator" "$DEST/bin/forgeinator-ctl" "$DEST/bin/hub-browser" "$DEST/bin/hub-update" "$DEST/bin/hub-tests" "$DEST/bin/hub-doctor" "$DEST/bin/hub-logs" "$DEST/bin/hub-archivo" "$DEST/main.py"
+chmod +x "$DEST/bin/hub" "$DEST/bin/forgeinator" "$DEST/bin/forgeinator-ctl" "$DEST/bin/forgeinatord" "$DEST/bin/hub-browser" "$DEST/bin/hub-update" "$DEST/bin/hub-tests" "$DEST/bin/hub-doctor" "$DEST/bin/hub-logs" "$DEST/bin/hub-archivo" "$DEST/main.py"
 for cand in python3 /usr/bin/python3; do
   if command -v "$cand" >/dev/null 2>&1; then "$cand" -m py_compile "$DEST"/main.py "$DEST"/hub/*.py && echo "Sintaxis Python OK." || echo "AVISO: py_compile fallo."; break; fi
 done
