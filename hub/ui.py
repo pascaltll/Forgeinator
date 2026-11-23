@@ -23,6 +23,7 @@ from . import themes as hubthemes
 from . import a11y as a11ymod
 from . import directplay
 from . import channel as chan
+from . import qamlink
 from . import selfupdate, gamedict, buildplan, sfx, auth, build, catalog, config, downloads, gamepad, ghapi, github, install, dlwatch, esde, formats, library, port, roms, hubbrowser, received, gamecfg, cmdjob, artgen, steamsetup, sgdb, artsrc, recompsite, gsfocus, catalogservice, catalogjobs, quiversrc, trash, perf, covers, buildlog, doctor, ghcookies, ghstats, platformart, icons, launchlog, osver, steamlib, power, recipes, peek, discid, fonts, launchwatch, themes_fam, ownwine, lcheck, nethttp, history, diag, haptic, logview
 
 BG = (10, 10, 12)            # estilo Apple oscuro: negro casi puro, capas de gris «sistema»
@@ -158,6 +159,7 @@ def _gamescope_running() -> bool:
     return False
 
 
+CHORD_WIN = 0.12                                       # v3.17: ventana para reconocer «guía + botón» (atajos de Steam)
 _MOTION_EV = (pygame.MOUSEMOTION, pygame.FINGERMOTION, pygame.MOUSEWHEEL)
 ANIM = None                                                # fondo animado del tema: "aurora" · "stars" · "embers"
 FONTK = 1.0                                                # la monoespaciada es más ancha: el tema la encoge para que quepa
@@ -986,6 +988,12 @@ class UI(*_PARTS):
             except Exception as ex:  # noqa: BLE001
                 print(f"[receta] {ex}", file=sys.stderr, flush=True)
         t0 = self.__dict__.setdefault("_t_first_pump", now)
+        q = self.__dict__.get("_uiq")
+        while q:                                        # v3.17: lo que los hilos dejan para el hilo de la interfaz
+            try:
+                q.pop(0)()
+            except Exception as ex:  # noqa: BLE001
+                print(f"[interfaz] tarea pendiente falló: {type(ex).__name__}: {ex}", file=sys.stderr, flush=True)
         if not self.__dict__.get("_chan_chk") and now - t0 > 1.5:
             self._chan_chk = True
             msg = chan.take_notice() if config.CHANNEL else None
@@ -1084,17 +1092,31 @@ class UI(*_PARTS):
         if not self.win_focus and now - self.lost_at > 2.0 and pygame.key.get_focused():
             self.win_focus = True   # red de seguridad: SDL dice que hay foco pero no llegó FOCUSGAINED → no quedarse sordo
             print("[foco] SDL informa foco de nuevo: se reanuda la entrada del mando", file=sys.stderr, flush=True)
+        modes = self.__dict__.setdefault("_mode_ts", collections.deque(maxlen=8))
+        for qb, qts in self.pad_q:                     # v3.17: un MODE que ya está en la cola cuenta aunque venga detrás (ver abajo)
+            if qb == "MODE" and qts not in modes:
+                modes.append(qts)
         while self.pad_q:
-            b, ts = self.pad_q.popleft()
+            b, ts = self.pad_q[0]
             if b.startswith("~"):                      # soltado (evdev): deja de repetir
+                self.pad_q.popleft()
                 self.held.pop(b[1:], None)
                 continue
+            # v3.17: el botón del QAM (y otros atajos de Steam) llega como «guía + A»: Steam+A abre el QAM. En un mismo informe evdev los
+            # códigos van en orden (BTN_SOUTH 0x130 antes que BTN_MODE 0x13C), así que la A se procesaba antes que la guía y pulsaba lo que
+            # tuviera el foco (JUGAR → se abría el juego). Los botones esperan CHORD_WIN; si hay un MODE a menos de eso, se descartan.
+            if b not in DIRS and b != "MODE" and now - ts < CHORD_WIN and not any(qb == "MODE" for qb, _ in self.pad_q):
+                break                                  # aún puede llegar la guía: se decide en el siguiente fotograma
+            self.pad_q.popleft()
             self.t_act = now                           # el mando por evdev también cuenta como actividad (Ajustes no baja a 20 fps mientras navegas)
             # Hub lee el mando directo de /dev/input (no pasa por Steam): si hay un menú de Steam/QAM encima, ese mando también
             # le llega a Hub. Se ignora mientras Hub no tiene el foco, justo después de recuperarlo y si el evento ya es viejo.
             if b == "MODE":   # botón Steam/guía: probablemente abre un menú encima
                 self.mute_until = max(self.mute_until, now + 1.5)
                 print("[foco] botón Steam/guía: entrada del mando en pausa 1,5 s", file=sys.stderr, flush=True)
+                continue
+            if b not in DIRS and any(abs(ts - m) <= CHORD_WIN for m in modes):
+                print(f"[foco] {b} junto al botón Steam/guía (atajo de Steam, p. ej. el del QAM): ignorado", file=sys.stderr, flush=True)
                 continue
             if not self.win_focus or self._gs_over() or now < self.mute_until or now - ts > 0.6:
                 self.dropped += 1
@@ -1579,6 +1601,11 @@ class UI(*_PARTS):
             self.focus = None
             return
         sc = self.steam_shortcut(lid, e["name"]) if self.via_steam_ok() else None
+        if not sc and self.via_steam_ok() and not e.get("_force_direct") and not e.get("_no_qam"):
+            # v3.17: sin atajo en Steam → QAM Rail lo crea en caliente (con su arte) y lo lanza: el juego sale en la barra lateral, con su
+            # perfil de TDP y su tiempo de juego. Si QAM Rail no está o falla, se sigue como antes (abajo).
+            self.play_via_qam(e, lid)
+            return
         if not sc and self.in_game_mode() and not os.environ.get("SteamGameId") and not e.get("_force_direct"):
             # v3.16: Hub abierto desde el QAM (no es un juego de Steam) y el juego no tiene atajo: lanzado a pelo, gamescope no lo mostraría
             def igual(e=e):
@@ -1636,6 +1663,51 @@ class UI(*_PARTS):
         self.play_eid = e["id"]
         print(f"[jugar] lanzado «{lid}» (pid {pr.pid}) · cerrar Hub: {self.cfg.get('close_on_play', True)} (espera {self.play_wait:.0f}s a ver si arranca)", file=sys.stderr, flush=True)
         self.toast("Abriendo el juego…" + (" Hub se cierra cuando arranque" if self.cfg.get("close_on_play", True) else ""))
+
+    def play_via_qam(self, e, lid):
+        """v3.17: pide a QAM Rail (socket local) que cree el atajo de Steam del juego si falta, con el arte del Hub, y lo lance."""
+        if getattr(self, "_qam_busy", False):
+            return
+        self._qam_busy = True
+        self.toast(f"Preparando «{e['name']}» en Steam…")
+        try:
+            exe = directplay.ensure_script(lid, self.cfg.get("direct_play", True))
+        except OSError as ex:
+            self._qam_busy = False
+            print(f"[jugar] «{lid}»: no pude escribir su script de atajo: {ex}", file=sys.stderr, flush=True)
+            self.play(dict(e, _no_qam=True))
+            return
+        art = {k: f for k, f in self.art_files(e).items() if k in qamlink.ART_KEYS}
+        as_game = bool(os.environ.get("SteamGameId"))       # Hub es un juego de Steam: el otro solo abre cuando Hub se cierra
+        game = qamlink.game_request(lid, e["name"], str(exe), art=art, appid=qamlink.known_appids(config.DATA).get(lid),
+                                    run_delay_ms=1500 if as_game else 0)
+        ver = self.inst(e).get("version", "")
+
+        def job():
+            r = qamlink.ping()
+            if r.get("ok"):
+                r = qamlink.run_shortcut(game)
+            self.__dict__.setdefault("_uiq", []).append(lambda: self._qam_done(e, lid, r, ver))
+        threading.Thread(target=job, daemon=True).start()
+
+    def _qam_done(self, e, lid, r, ver):
+        self._qam_busy = False
+        if not r.get("ok"):
+            print(f"[jugar] «{lid}»: QAM Rail no pudo lanzarlo por Steam ({r.get('error')}: {r.get('detail', '')})", file=sys.stderr, flush=True)
+            self.play(dict(e, _no_qam=True))           # lo de antes: atajo existente, o preguntar antes de lanzarlo a pelo
+            return
+        appid = r["appid"]
+        qamlink.remember_appid(config.DATA, lid, appid)
+        self._sc_t = 0                                  # que la próxima búsqueda de atajos vea el nuevo
+        print(f"[jugar] «{lid}» vía QAM Rail: atajo {'creado' if r.get('created') else 'existente'} (appid {appid}), lanzado por Steam",
+              file=sys.stderr, flush=True)
+        history.record(lid, "jugar", None, "lanzado vía Steam (QAM Rail)", version=ver)
+        self.cfg["last_played"] = {"id": e["id"], "t": time.time()}
+        config.save_settings(self.cfg)
+        close = self.cfg.get("close_on_play", True) or bool(os.environ.get("SteamGameId"))
+        self.toast(f"Abriendo «{e['name']}» por Steam" + ("… Hub se cierra" if close else ""))
+        if close:
+            self.exit_at = time.time() + (0.3 if os.environ.get("SteamGameId") else 0.8)
 
     def libs_for(self, lid):
         """Bibliotecas que faltan (ldd en un hilo, una vez por juego y sesión; se repite si cambia el binario al lanzar).

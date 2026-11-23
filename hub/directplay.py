@@ -83,6 +83,18 @@ def set_shortcut(lid: str, direct: bool) -> bool:
     return False
 
 
+def ensure_script(lid: str, direct: bool) -> Path:
+    """v3.17: el script al que apunta el atajo de Steam del juego (launcher/shortcuts/<id>.sh). Si el launcher no lo generó, lo escribe
+    Hub (con su marca), para que QAM Rail pueda crear el atajo sin pasar por `play --shortcuts`."""
+    p = config.LAUNCHER / "shortcuts" / f"{lid}.sh"
+    if not p.exists():
+        p.parent.mkdir(parents=True, exist_ok=True)
+        _write(p, shortcut_text(lid) if direct else _launcher_text(lid))
+    else:
+        set_shortcut(lid, direct)
+    return p
+
+
 def apply_all(direct: bool) -> int:
     """Todos los accesos de shortcuts/. Devuelve cuántos cambió."""
     d = config.LAUNCHER / "shortcuts"

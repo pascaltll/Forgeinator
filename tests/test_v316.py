@@ -1,6 +1,7 @@
 """v3.16 · Hub abierto desde el QAM (no es un juego de Steam) en el Modo Juego: los juegos se lanzan por su atajo de Steam; sin atajo,
 se pregunta antes de lanzarlos a pelo (gamescope no los mostraría)."""
 import os
+import time
 
 from test_temas_y_fuzz import H, ui, run, sin_efectos_reales, estado_limpio  # noqa: F401
 
@@ -25,6 +26,7 @@ def test_sin_atajo_pregunta_en_vez_de_lanzar_invisible(H, ui, tmp_path, monkeypa
     import types
     from hub import config
     monkeypatch.delenv("SteamGameId", raising=False)
+    monkeypatch.setenv("QAM_RAIL_SOCK", str(tmp_path / "no-hay-qam.sock"))    # v3.17: sin QAM Rail → se pregunta como en v3.16
     monkeypatch.setattr(config, "LAUNCHER", tmp_path / "l")
     (config.LAUNCHER / "bin").mkdir(parents=True)
     (config.LAUNCHER / "bin" / "play").write_text("#!/bin/sh\n")
@@ -41,6 +43,10 @@ def test_sin_atajo_pregunta_en_vez_de_lanzar_invisible(H, ui, tmp_path, monkeypa
     e = {"id": "ctr", "name": "Crash Team Racing"}
     try:
         ui.play(e)
+        t0 = time.time()
+        while not ui.modal and time.time() - t0 < 5:
+            ui.pump()
+            time.sleep(0.02)
         assert ui.modal and ui.modal["title"] == "Este juego no tiene atajo en Steam" and not lanzados, "no se lanza a ciegas"
         dict(ui.modal["options"])["LANZAR DE TODOS MODOS"]()
         assert lanzados and ui.modal is None

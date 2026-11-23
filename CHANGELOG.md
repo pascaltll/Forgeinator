@@ -1481,3 +1481,14 @@ Medido en 17 pantallas × 6 temas × calidad alta/rendimiento, a 1280×800 y 192
 - **El problema:** abierto desde el QAM, el Hub no es un «juego de Steam» (no tiene `SteamGameId`). Por eso lanzaba los juegos directamente, sin pasar por Steam, y en el Modo Juego gamescope no los mostraba. El juego seguía en marcha, invisible, y el Hub se cerraba.
 - **Ahora:** en el Modo Juego (gamescope en marcha) los juegos se lanzan siempre por su atajo de Steam, venga de donde venga el Hub.
 - **Si el juego no tiene atajo:** el Hub pregunta antes de lanzarlo a pelo. Desde la ficha se puede añadir a Steam, y queda la opción «Lanzar de todos modos».
+
+## v3.17 · Atajos de Steam automáticos con QAM Rail
+- **Objetivo:** al pulsar JUGAR en el Modo Juego, un juego sin atajo de Steam queda reconocido por Steam como cualquier otro, con su nombre y su arte en la barra lateral, su perfil de TDP y su tiempo de juego.
+- **Cómo:** el Hub pide a QAM Rail, por el socket local `$XDG_RUNTIME_DIR/qam-rail.sock`, que cree el atajo en caliente con el arte del juego y lo lance. No hay que cerrar Steam ni pasar al escritorio. El contrato está en el proyecto: `claude/forgeinator-qam-atajos.md`.
+- **Qué hace el Hub:**
+  - escribe `launcher/shortcuts/<id>.sh` si el launcher no lo generó;
+  - recuerda el appid de cada atajo en la biblioteca común (`steam-appids.json`).
+- **Sin QAM Rail** (o con una versión que aún no lo sabe hacer), todo sigue como en v3.16.
+- **Arreglo · el botón del QAM abría un juego.**
+  - **Qué pasaba:** el botón del QAM le llega al Hub como «guía + A» (el atajo de Steam para abrir el QAM). Dentro de un mismo informe del mando, la A va antes que la guía, así que se procesaba primero y pulsaba lo que tuviera el foco: JUGAR abría el juego, sin verse, detrás del QAM.
+  - **Ahora:** cada botón espera 0,12 s antes de procesarse. Si la guía llega dentro de ese margen, el botón se descarta y queda anotado en hub.log como `[foco] A junto al botón Steam/guía`. Las direcciones no esperan.
